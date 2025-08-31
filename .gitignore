@@ -1,0 +1,15 @@
+/node_modules
+/dist
+/build
+/coverage
+/logs
+/tmp
+/data
+/cache
+/backup
+/temp
+/test
+
+lambda-function.zip
+
+.DS_Store

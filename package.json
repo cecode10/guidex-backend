@@ -1,0 +1,28 @@
+{
+    "name": "guidex-backend",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "index.mjs",
+    "sideEffects": false,
+    "scripts": {
+        "start": "node index.mjs",
+        "clean": "rm -rf dist -f lambda-function.zip",
+        "webpack": "npx webpack --config webpack.config.js",
+        "zip": "zip -j -r lambda-function.zip dist/*",
+        "push": "aws lambda update-function-code --function-name guidex-backend --zip-file fileb://lambda-function.zip",
+        "build": "npm run clean && npm run webpack && npm run zip",
+        "deploy": "npm run build && npm run push"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.21.0",
+        "eslint": "^9.21.0",
+        "globals": "^16.0.0",
+        "webpack": "^5.98.0",
+        "webpack-cli": "^6.0.1"
+    },
+    "dependencies": {
+        "@aws-sdk/client-bedrock-runtime": "^3.470.0",
+        "@aws-sdk/client-cloudwatch": "^3.470.0",
+        "@aws-sdk/client-lambda": "^3.470.0"
+    }
+}
