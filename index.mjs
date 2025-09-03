@@ -48,8 +48,11 @@ const processText = async (event) => {
 
     Conversation History:
     - Consider the below conversation history when ansering the users question:
+
     <BEGIN_OF_CONVERSATION_HISTORY>
+
     ${event.conversation}
+
     <END_OF_CONVERSATION_HISTORY>
 
     <|start_header_id|>user<|end_header_id|>
