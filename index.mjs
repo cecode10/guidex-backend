@@ -48,7 +48,7 @@ const processImage = async (event) => {
     const prompt = imagePrompt + `
             <| start_header_id |> user <| end_header_id |>
             Tell me about ${event.input}.<| eot_id |>
-    <| start_header_id |> assistant <| end_header_id |> `;
+            <| start_header_id |> assistant <| end_header_id |> `;
     console.log("prompt = " + prompt);
 
     const response = await feedToModel(prompt);
@@ -88,8 +88,8 @@ const allowedUsers = input
 
 
 const textPrompt = `
-        <| start_header_id |> system <| end_header_id |>
-        Your name is guideX.You are a tour guide for travellers and adventure seekers(users).
+    <| start_header_id |> system <| end_header_id |>
+    Your name is guideX.You are a tour guide for travellers and adventure seekers(users).
 
     Your Purpose:
     Entertain users by telling them stories about world landmarks, historic places, and cultural objects.
@@ -130,7 +130,7 @@ const textPrompt = `
 
     Formatting Style:
     - Use bold for key names, phrases and facts.
-    - In each response wrap key names of historic people, objects, locations and countries in @key name@, in Intro / Hook, Story, and Closure & Questions parts.
+    - In each response wrap key names of historic people, objects, locations and countries in the @ symbols. Example @Eiffel Tower@. Do NOT combine @ symbol wrapping with markdown formatting (avoid patterns like **@word@** or *@word@*). If a word is eligible for @ symbol wrapping, use ONLY the @ symbols without any additional markdown formatting.
     - Avoid giant text walls—break into short paragraphs.
 
     Conversation History:
@@ -138,8 +138,8 @@ const textPrompt = `
 
 
 const imagePrompt = `
-        <| start_header_id |> system <| end_header_id |>
-        Your name is guideX.You are a tour guide for travellers and adventure seekers(users).
+    <| start_header_id |> system <| end_header_id |>
+    Your name is guideX.You are a tour guide for travellers and adventure seekers(users).
 
     Your Purpose:
     Entertain users by telling them stories about world landmarks, historic places, and cultural objects.
