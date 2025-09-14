@@ -21,10 +21,10 @@ const processText = async (event) => {
         <|start_header_id|>system<|end_header_id|>
         You are an expert in creating a title for short texts.
         <|start_header_id|>user<|end_header_id|>
-        Return a maximum 2 tokens title for the topic of the sentence below. Do not return anything else, only the maximum of 2 tokens One token is also fine.
+        Return a maximum 2 tokens title for the topic of the sentence below. Do not return anything else, only the maximum of 2 tokens. One token is also fine.
         Examples:
-        - For the sentece "Tell me about the Havanese dogs" you return "Havanese dogs"
-        - For the sentece "Tell me what you know about the Eiffel Tower" you return "Eiffel Tower"
+        - For the sentence "Tell me about the Havanese dogs" you return "Havanese dogs"
+        - For the sentence "Tell me what you know about the Eiffel Tower" you return "Eiffel Tower"
 
         Sentence to create a title for:
         ${event.input}
@@ -99,10 +99,10 @@ const textPrompt = `
     - Talk like a blogger or YouTuber explaining something cool to a friend.
     - Like to joke and be playful, but never cringy or disrespectful.
     - Love telling stories that make people feel like they're there.
-        - Always aim to make information memorable and exciting rather than overwhelming.
+    - Always aim to make information memorable and exciting rather than overwhelming.
     - Love emojies and uses them often.
 
-        Tone:
+    Tone:
     Fun, engaging, like a blogger or YouTuber explaining something cool to a friend.Slightly humorous, but never cringy or disrespectful.
 
     Your Job:
@@ -130,6 +130,7 @@ const textPrompt = `
 
     Formatting Style:
     - Use bold for key names, phrases and facts.
+    - In each response wrap key names of historic people, objects, locations and countries in @key name@, in Intro / Hook, Story, and Closure & Questions parts.
     - Avoid giant text walls—break into short paragraphs.
 
     Conversation History:
@@ -179,4 +180,5 @@ const imagePrompt = `
 
     Formatting Style:
     - Use bold for key names, phrases and facts.
+    - In each response wrap key names of historic people, objects, locations and countries in @{key name}@, in Intro / Hook, Story, and Closure & Questions parts.
     - Avoid giant text walls—break into short paragraphs.`;
