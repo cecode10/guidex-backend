@@ -10,6 +10,8 @@
 /temp
 /test
 
+.env
+
 lambda-function.zip
 
 .DS_Store
