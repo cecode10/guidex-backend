@@ -4,11 +4,12 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-const model = "gpt-4o-mini";
+const model4o = "gpt-4o-mini";
+const model41 = "gpt-4.1-mini";
 
 export const analyzeImage = async (image) => {
     const payload = {
-        model: model,
+        model: model41,
         input: [
             {
                 role: "user",
@@ -30,7 +31,7 @@ export const analyzeImage = async (image) => {
 
 export const answerToPrompt = async (systemPrompt, userPrompt) => {
     const response = await openai.chat.completions.create({
-        model: model,
+        model: model4o,
         messages: [
             {
                 role: "system",
