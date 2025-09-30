@@ -14,7 +14,7 @@ export const analyzeImage = async (image) => {
             {
                 role: "user",
                 content: [
-                    {type: "input_text", text: "What landmark or famous place is on this image? Return only the name of the place, nothing else."},
+                    {type: "input_text", text: "What object is on this image? Return only its name and nothing else. Look first for landmarks and famous places, then for objects. Do not exceed 22 characters."},
                     {
                         type: "input_image",
                         image_url: `data:image/jpeg;base64,${image}`,
