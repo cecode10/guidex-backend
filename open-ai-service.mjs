@@ -41,6 +41,8 @@ export const analyzeImage = async (image, localtion) => {
 }
 
 export const answerToPrompt = async (systemPrompt, userPrompt) => {
+    console.log("systemPrompt = " + systemPrompt);
+    console.log("userPrompt = " + userPrompt);
     const response = await openai.chat.completions.create({
         model: model4o,
         messages: [
@@ -64,6 +66,5 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
             }
         ]
     });
-    console.log("response = " + JSON.stringify(response));
     return response.choices[0].message.content;
 }
