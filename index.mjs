@@ -1,7 +1,7 @@
 import {answerToPrompt, analyzeImage} from "./open-ai-service.mjs";
 import { mainSystemPrompt } from "./prompt.mjs";
 
-const processGeneralPrompt = async (event) => {
+const processTextPrompt = async (event) => {
 
     const systemPrompt = textSystemPrompt + `
     <BEGIN_OF_CONVERSATION_HISTORY>
@@ -38,7 +38,7 @@ const processGeneralPrompt = async (event) => {
     }
 }
 
-const processLandmarkPrompt = async (event) => {
+const processImageAnnotationPrompt = async (event) => {
     console.log("processing image");
     const systemPrompt = imageSystemPrompt;
     const userPrompt = `Tell me about ${event.input}.`;
@@ -51,10 +51,10 @@ const processLandmarkPrompt = async (event) => {
     }
 }
 
-const processImage = async (event) => {
+const processImageRecognition = async (event) => {
     console.log("processing image");
     const imageBase64 = event.input;
-    const userPromptResponse = await analyzeImage(imageBase64);
+    const userPromptResponse = await analyzeImage(imageBase64, event.location);
     console.log("user_prompt_response = " + userPromptResponse);
     return {
         response: userPromptResponse
@@ -70,14 +70,14 @@ export const handler = async (event) => {
                 "error": "not-allowed"
             }
         }
-        if (event.input_type == "general_prompt") {
-            return processGeneralPrompt(event);
+        if (event.input_type == "text_prompt") {
+            return processTextPrompt(event);
         }
-        if (event.input_type == "landmark_prompt") {
-            return processLandmarkPrompt(event);
+        if (event.input_type == "image_annotation_prompt") {
+            return processImageAnnotationPrompt(event);
         }
-        if (event.input_type == "image") {
-            return processImage(event);
+        if (event.input_type == "image_recognition") {
+            return processImageRecognition(event);
         }
         throw new Error(`input type ${event.input_type
             } not allowed`);
