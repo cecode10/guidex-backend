@@ -7,16 +7,33 @@ const openai = new OpenAI({
 const model4o = "gpt-4o-mini";
 const model41 = "gpt-4.1-mini";
 
-export const analyzeImage = async (image, localtion) => {
-    let locationPrompt = "";
-    if (localtion) {
-        locationPrompt = "Location: use the following location optionaly if you need help to determine the name of a place or landmark: " + JSON.stringify(localtion);
+const buildLocationPrompt = (location) => {
+    if (!location) {
+        return "";
     }
-    const finalPrompt = `
-                        What object is on this image?
-                        Return only its name and nothing else. Look first for landmarks and famous places, then for objects. Do not exceed 22 characters.
-                        ${locationPrompt}
-                        `
+    return (
+        "Location: use the following location optionaly if you need help " +
+        "to determine the name of a place or landmark: " +
+        JSON.stringify(location)
+    );
+};
+
+export const analyzeImage = async (image, location) => {
+    const imageInput = image?.trim();
+    if (!imageInput) {
+        throw new Error("image is required");
+    }
+
+    const locationPrompt = buildLocationPrompt(location);
+    const finalPrompt = [
+        "What object is on this image?",
+        "Return only its name and nothing else.",
+        "Look first for landmarks and famous places, then for objects.",
+        "Do not exceed 22 characters.",
+        locationPrompt,
+    ]
+        .filter(Boolean)
+        .join("\n");
     console.log("finalPrompt=" + finalPrompt);
     const payload = {
         model: model41,
@@ -25,15 +42,17 @@ export const analyzeImage = async (image, localtion) => {
                 role: "user",
                 content: [
                     {
-                        type: "input_text", text: finalPrompt},
+                        type: "input_text",
+                        text: finalPrompt,
+                    },
                     {
                         type: "input_image",
-                        image_url: `data:image/jpeg;base64,${image}`,
+                        image_url: `data:image/jpeg;base64,${imageInput}`,
                     },
                 ],
             },
         ],
-    }
+    };
     // console.log("payload = " + JSON.stringify(payload));
     const response = await openai.responses.create(payload);
     console.log("response.output_text = " + JSON.stringify(response));
@@ -41,6 +60,13 @@ export const analyzeImage = async (image, localtion) => {
 }
 
 export const answerToPrompt = async (systemPrompt, userPrompt) => {
+    if (!systemPrompt?.trim()) {
+        throw new Error("system prompt is required");
+    }
+    if (!userPrompt?.trim()) {
+        throw new Error("user prompt is required");
+    }
+
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
     const response = await openai.chat.completions.create({

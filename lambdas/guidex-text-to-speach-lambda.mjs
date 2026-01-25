@@ -47,10 +47,7 @@ const buildRequestPayload = (input) => {
 };
 
 const getGoogleTtsApiKey = () => {
-    return (
-        process.env.GOOGLE_CLOUD_TTS_API_KEY ||
-        process.env.GOOGLE_TTS_API_KEY ||
-        process.env.GOOGLE_API_KEY
+    return (process.env.GOOGLE_TTS_API_KEY
     );
 };
 
