@@ -8,17 +8,14 @@
         "clean:bundle": "rm -rf dist/* -f lambda-function.zip",
         "webpack": "npx webpack --config webpack.config.js",
         "zip": "zip -j -r lambda-function.zip dist/*",
-
-        "build:text-prompt": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-prompt-lambda.mjs --env outputFilename=guidex-text-prompt-lambda.js && zip -j -r lambda-function.zip dist/guidex-text-prompt-lambda.js",
-        "build:image-annotation": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-annotation-lambda.mjs --env outputFilename=guidex-image-annotation-lambda.js && zip -j -r lambda-function.zip dist/guidex-image-annotation-lambda.js",
-        "build:image-recognition": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-recognition-lambda.mjs --env outputFilename=guidex-image-recognition-lambda.js && zip -j -r lambda-function.zip dist/guidex-image-recognition-lambda.js",
-        "build:text-to-speech": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-to-speach-lambda.mjs --env outputFilename=guidex-text-to-speach-lambda.js && zip -j -r lambda-function.zip dist/guidex-text-to-speach-lambda.js",
-
+        "build:text-prompt": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-prompt-lambda.mjs --env outputFilename=guidex-text-prompt-lambda.js && zip -j -r lambda-function.zip dist/*.js",
+        "build:image-annotation": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-annotation-lambda.mjs --env outputFilename=guidex-image-annotation-lambda.js && zip -j -r lambda-function.zip dist/*.js",
+        "build:image-recognition": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-recognition-lambda.mjs --env outputFilename=guidex-image-recognition-lambda.js && zip -j -r lambda-function.zip dist/*.js",
+        "build:text-to-speech": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-to-speech-lambda.mjs --env outputFilename=guidex-text-to-speech-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "push:text-prompt": "aws lambda update-function-code --function-name guidex-text-prompt --zip-file fileb://lambda-function.zip",
         "push:image-annotation": "aws lambda update-function-code --function-name guidex-image-annotation --zip-file fileb://lambda-function.zip",
         "push:image-recognition": "aws lambda update-function-code --function-name guidex-image-recognition --zip-file fileb://lambda-function.zip",
         "push:text-to-speech": "aws lambda update-function-code --function-name guidex-text-to-speach --zip-file fileb://lambda-function.zip",
-
         "deploy:text-prompt": "npm run build:text-prompt && npm run push:text-prompt",
         "deploy:image-annotation": "npm run build:image-annotation && npm run push:image-annotation",
         "deploy:image-recognition": "npm run build:image-recognition && npm run push:image-recognition",
@@ -35,6 +32,7 @@
         "@aws-sdk/client-bedrock-runtime": "^3.470.0",
         "@aws-sdk/client-cloudwatch": "^3.470.0",
         "@aws-sdk/client-lambda": "^3.470.0",
+        "@google-cloud/text-to-speech": "^6.4.0",
         "openai": "^4.84.0"
     }
 }

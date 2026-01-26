@@ -8,7 +8,7 @@ const multiEntry = {
   "guidex-text-prompt-lambda": './lambdas/guidex-text-prompt-lambda.mjs',
   "guidex-image-annotation-lambda": './lambdas/guidex-image-annotation-lambda.mjs',
   "guidex-image-recognition-lambda": './lambdas/guidex-image-recognition-lambda.mjs',
-  "guidex-text-to-speach-lambda": './lambdas/guidex-text-to-speach-lambda.mjs',
+  "guidex-text-to-speech-lambda": './lambdas/guidex-text-to-speech-lambda.mjs',
 };
 
 export default (env = {}) => {
@@ -27,6 +27,8 @@ export default (env = {}) => {
     mode: 'development',
     optimization: {
       usedExports: true,
+      splitChunks: false,
+      runtimeChunk: false,
     },
     devtool: 'cheap-module-source-map',
     module: {
