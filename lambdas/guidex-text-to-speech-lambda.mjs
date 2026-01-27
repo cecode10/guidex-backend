@@ -35,8 +35,7 @@ export const handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: audioContent.toString('base64'),
-            isBase64Encoded: true,
+            body: audioContent.toString('base64')
         };
     } catch (error) {
         console.error("TTS Synthesis Error:", error);
