@@ -32,7 +32,6 @@
         "@aws-sdk/client-bedrock-runtime": "^3.470.0",
         "@aws-sdk/client-cloudwatch": "^3.470.0",
         "@aws-sdk/client-lambda": "^3.470.0",
-        "@google-cloud/text-to-speech": "^6.4.0",
         "openai": "^4.84.0"
     }
 }

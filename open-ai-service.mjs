@@ -94,3 +94,24 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     });
     return response.choices[0].message.content;
 }
+
+export const textToSpeech = async (text, options = {}) => {
+    const inputText = text?.trim();
+    if (!inputText) {
+        throw new Error("text is required");
+    }
+
+    const model = options.model || "gpt-4o-mini-tts";
+    const voice = options.voice || "alloy";
+    const format = options.format || "mp3";
+
+    const response = await openai.audio.speech.create({
+        model,
+        voice,
+        input: inputText,
+        format,
+    });
+
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    return audioBuffer.toString("base64");
+}
