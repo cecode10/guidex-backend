@@ -1,5 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import TerserPlugin from 'terser-webpack-plugin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,7 @@ export default (env = {}) => {
   const entry = env.entry || multiEntry;
   const outputFilename =
     env.outputFilename || (typeof entry === 'string' ? 'index.js' : '[name].js');
+  const isProduction = env.production !== false;
 
   return {
     entry,
@@ -22,15 +24,35 @@ export default (env = {}) => {
       filename: outputFilename,
       path: path.resolve(__dirname, 'dist'),
       libraryTarget: 'commonjs2',
+      clean: true,
     },
     target: 'node',
-    mode: 'development',
+    mode: isProduction ? 'production' : 'development',
     optimization: {
       usedExports: true,
       splitChunks: false,
       runtimeChunk: false,
+      concatenateModules: isProduction,
+      minimize: isProduction,
+      minimizer: isProduction
+        ? [
+            new TerserPlugin({
+              terserOptions: {
+                compress: {
+                  defaults: true,
+                  passes: 2,
+                },
+                format: {
+                  beautify: true,
+                  comments: false,
+                },
+              },
+              extractComments: false,
+            }),
+          ]
+        : [],
     },
-    devtool: 'cheap-module-source-map',
+    devtool: false,
     module: {
       rules: [
         {
