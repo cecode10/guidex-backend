@@ -108,9 +108,9 @@ export const handler = async (event) => {
         return isHttpRequest ? toHttpResponse(200, result) : result;
     } catch (error) {
         console.error(error?.message || error);
-        const statusCode = error?.statusCode || 500;
+        const statusCode = error?.statusCode || error?.status || 500;
         const errorBody = {
-            error: error?.message || "text-prompt failed",
+            error: error?.message || error?.error?.message || "text-prompt failed",
         };
         return isHttpRequest ? toHttpResponse(statusCode, errorBody) : errorBody;
     }
