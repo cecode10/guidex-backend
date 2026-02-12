@@ -117,12 +117,8 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     }
 }
 
-export const textToSpeech = async (text, options = {}) => {
-    const inputText = text?.trim();
-    if (!inputText) {
-        throw new Error("text is required");
-    }
-
+export const textToSpeech = async (payload, options = {}) => {
+    const inputText = payload.text.trim();
     const model = options.model || "gpt-4o-mini-tts";
     const voice = options.voice || "alloy";
     const format = options.format || "mp3";

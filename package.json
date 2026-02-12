@@ -12,10 +12,10 @@
         "build:image-annotation": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-annotation-lambda.mjs --env outputFilename=guidex-image-annotation-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "build:image-recognition": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-recognition-lambda.mjs --env outputFilename=guidex-image-recognition-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "build:text-to-speech": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-to-speech-lambda.mjs --env outputFilename=guidex-text-to-speech-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "push:text-prompt": "aws lambda update-function-code --function-name guidex-text-prompt --zip-file fileb://lambda-function.zip",
-        "push:image-annotation": "aws lambda update-function-code --function-name guidex-image-annotation --zip-file fileb://lambda-function.zip",
-        "push:image-recognition": "aws lambda update-function-code --function-name guidex-image-recognition --zip-file fileb://lambda-function.zip",
-        "push:text-to-speech": "aws lambda update-function-code --function-name guidex-text-to-speach --zip-file fileb://lambda-function.zip",
+        "push:text-prompt": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-prompt --zip-file fileb://lambda-function.zip",
+        "push:image-annotation": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-annotation --zip-file fileb://lambda-function.zip",
+        "push:image-recognition": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-recognition --zip-file fileb://lambda-function.zip",
+        "push:text-to-speech": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-to-speach --zip-file fileb://lambda-function.zip",
         "deploy:text-prompt": "npm run build:text-prompt && npm run push:text-prompt",
         "deploy:image-annotation": "npm run build:image-annotation && npm run push:image-annotation",
         "deploy:image-recognition": "npm run build:image-recognition && npm run push:image-recognition",
@@ -31,6 +31,7 @@
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
+        "jose": "^5.2.0",
         "@aws-sdk/client-bedrock-runtime": "^3.470.0",
         "@aws-sdk/client-cloudwatch": "^3.470.0",
         "@aws-sdk/client-lambda": "^3.470.0",

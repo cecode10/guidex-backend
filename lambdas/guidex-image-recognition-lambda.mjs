@@ -1,20 +1,6 @@
 import { analyzeImage } from "../open-ai-service.mjs";
-
-const parseRequestBody = (event) => {
-    if (!event) {
-        return {};
-    }
-    if (typeof event === "string") {
-        return JSON.parse(event);
-    }
-    if (event.body) {
-        if (typeof event.body === "string") {
-            return JSON.parse(event.body);
-        }
-        return event.body;
-    }
-    return event;
-};
+import { requireAuth } from "../auth.mjs";
+import { parseRequestBody, validateMandatoryFields } from "../event-utils.mjs";
 
 const toHttpResponse = (statusCode, body) => {
     return {
@@ -27,36 +13,10 @@ const toHttpResponse = (statusCode, body) => {
     };
 };
 
-const getAllowedUsers = () => {
-    const input = process.env.PERMITTED_USERS;
-    if (!input) {
-        throw new Error("missing permitted users");
-    }
-    return input
-        .split(",")
-        .map((email) => email.trim())
-        .filter(Boolean);
-};
-
-const assertAllowedUser = (user, allowedUsers) => {
-    const userEmail = user?.trim();
-    if (!userEmail) {
-        throw new Error("user is required");
-    }
-    if (!allowedUsers.includes(userEmail)) {
-        const error = new Error("not-allowed");
-        error.statusCode = 403;
-        throw error;
-    }
-};
-
-const processImageRecognition = async (input) => {
-    const imageBase64 = input.input?.trim();
-    if (!imageBase64) {
-        throw new Error("input is required");
-    }
-
-    const userPromptResponse = await analyzeImage(imageBase64, input.location);
+const processImageRecognition = async (payload) => {
+    validateMandatoryFields(payload, ["input"])
+    const imageBase64 = payload.input.trim();
+    const userPromptResponse = await analyzeImage(imageBase64, payload.location);
     console.log("user_prompt_response = " + userPromptResponse);
     return {
         response: userPromptResponse,
@@ -64,23 +24,19 @@ const processImageRecognition = async (input) => {
 };
 
 export const handler = async (event) => {
-    const isHttpRequest = Boolean(
-        event?.requestContext || event?.rawPath || event?.httpMethod || event?.headers
-    );
-
     try {
-        const input = parseRequestBody(event);
-        const allowedUsers = getAllowedUsers();
-        assertAllowedUser(input.user, allowedUsers);
+        const decoded = await requireAuth(event);
+        console.log("auth: uid=%s email=%s", decoded.uid, decoded.email || "(none)");
 
+        const input = parseRequestBody(event);
         const result = await processImageRecognition(input);
-        return isHttpRequest ? toHttpResponse(200, result) : result;
+        return toHttpResponse(200, result);
     } catch (error) {
-        console.error(error?.message || error);
+        console.error("image-recognition error:", error?.message || error);
         const statusCode = error?.statusCode || 500;
         const errorBody = {
-            error: error?.message || "image-recognition failed",
+            error: statusCode === 401 ? "unauthorized" : (error?.message || "image-recognition failed"),
         };
-        return isHttpRequest ? toHttpResponse(statusCode, errorBody) : errorBody;
+        return toHttpResponse(statusCode, errorBody);
     }
 };
