@@ -1,5 +1,6 @@
 import { answerToPrompt } from "../open-ai-service.mjs";
-import { mainSystemPrompt } from "../prompt.mjs";
+import { summarySystemPrompt, buildSummaryUserPrompt } from "../prompt.mjs";
+import { getSystemPrompt } from "../persona.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields, parseRequestBody } from "../event-utils.mjs";
 
@@ -14,35 +15,30 @@ const toHttpResponse = (statusCode, body) => {
     };
 };
 
-const buildTextSystemPrompt = (conversation) => {
-    return `${textSystemPrompt}
+const buildSystemPromptWithChatHisotry = (systemPrompt, conversation) => {
+    return `${systemPrompt}
+Conversation History:
+- Consider the below conversation history when answering the users question:
+
 <BEGIN_OF_CONVERSATION_HISTORY>
 ${conversation || ""}
 <END_OF_CONVERSATION_HISTORY>`;
 };
 
 const processTextPrompt = async (payload) => {
-    validateMandatoryFields(payload, ["input", "conversation"])
+    validateMandatoryFields(payload, ["input", "persona"])
     const topic = payload.input.trim();
-    const systemPrompt = buildTextSystemPrompt(payload.conversation);
+    const persona = payload.persona.trim();
+    const systemPromptWithChatHistory = buildSystemPromptWithChatHisotry(getSystemPrompt(persona), payload.conversation);
     const userPrompt = `Tell me about ${topic}.`;
 
-    const userPromptResponse = await answerToPrompt(systemPrompt, userPrompt);
+    const userPromptResponse = await answerToPrompt(systemPromptWithChatHistory, userPrompt);
     console.log("user_prompt_response = " + userPromptResponse);
 
     if (payload.generate_summary) {
         console.log("generating summary with prompt = " + topic);
 
-        const summarySystemPrompt = `You are an expert in creating a title for short texts.`;
-        const summaryUserPrompt = `
-Return a maximum 2 tokens title for the topic of the sentence below. Do not return anything else, only the maximum of 2 tokens. One token is also fine.
-Examples:
-- For the sentence "Tell me about the Havanese dogs" you return "Havanese dogs"
-- For the sentence "Tell me what you know about the Eiffel Tower" you return "Eiffel Tower"
-
-Sentence to create a title for:
-${topic}`;
-        const responseSummary = await answerToPrompt(summarySystemPrompt, summaryUserPrompt);
+        const responseSummary = await answerToPrompt(summarySystemPrompt, buildSummaryUserPrompt(topic));
         console.log("response_summary = " + responseSummary);
         return {
             response_summary: responseSummary,
@@ -71,8 +67,3 @@ export const handler = async (event) => {
     }
 };
 
-const textSystemPrompt = `
-${mainSystemPrompt}
-
-Conversation History:
-- Consider the below conversation history when answering the users question: `;

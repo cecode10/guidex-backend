@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { buildLocationPrompt, imageRecognitionPrompt } from "./prompt.mjs";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -21,17 +22,6 @@ const normalizeOpenAiError = (error) => {
     return error;
 };
 
-const buildLocationPrompt = (location) => {
-    if (!location) {
-        return "";
-    }
-    return (
-        "Location: use the following location optionaly if you need help " +
-        "to determine the name of a place or landmark: " +
-        JSON.stringify(location)
-    );
-};
-
 export const analyzeImage = async (image, location) => {
     const imageInput = image?.trim();
     if (!imageInput) {
@@ -40,10 +30,7 @@ export const analyzeImage = async (image, location) => {
 
     const locationPrompt = buildLocationPrompt(location);
     const finalPrompt = [
-        "What object is on this image?",
-        "Return only its name and nothing else.",
-        "Look first for landmarks and famous places, then for objects.",
-        "Do not exceed 22 characters.",
+        ...imageRecognitionPrompt,
         locationPrompt,
     ]
         .filter(Boolean)
