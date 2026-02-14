@@ -19,7 +19,7 @@ const processImageAnnotationPrompt = async (payload) => {
     validateMandatoryFields(payload, ["input", "persona"])
     const topic = payload.input.trim();
     const persona = payload.persona.trim();
-    const userPrompt = `Tell me about ${topic}.`;
+    const userPrompt = `Tell me about ${topic}`;
 
     const userPromptResponse = await answerToPrompt(getSystemPrompt(persona), userPrompt);
     console.log("user_prompt_response = " + userPromptResponse);
