@@ -71,7 +71,6 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
-
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
     try {

@@ -30,7 +30,7 @@ const processTextPrompt = async (payload) => {
     const topic = payload.input.trim();
     const persona = payload.persona.trim();
     const systemPromptWithChatHistory = buildSystemPromptWithChatHisotry(getSystemPrompt(persona), payload.conversation);
-    const userPrompt = `Tell me about ${topic}.`;
+    const userPrompt = `${topic}`;
 
     const userPromptResponse = await answerToPrompt(systemPromptWithChatHistory, userPrompt);
     console.log("user_prompt_response = " + userPromptResponse);
