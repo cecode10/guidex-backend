@@ -12,15 +12,18 @@
         "build:image-annotation": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-annotation-lambda.mjs --env outputFilename=guidex-image-annotation-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "build:image-recognition": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-recognition-lambda.mjs --env outputFilename=guidex-image-recognition-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "build:text-to-speech": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-to-speech-lambda.mjs --env outputFilename=guidex-text-to-speech-lambda.js && zip -j -r lambda-function.zip dist/*.js",
+        "build:delete-account": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-delete-account-lambda.mjs --env outputFilename=guidex-delete-account-lambda.js && zip -j -r lambda-function.zip dist/*.js",
         "push:text-prompt": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-prompt --zip-file fileb://lambda-function.zip",
         "push:image-annotation": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-annotation --zip-file fileb://lambda-function.zip",
         "push:image-recognition": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-recognition --zip-file fileb://lambda-function.zip",
         "push:text-to-speech": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-to-speach --zip-file fileb://lambda-function.zip",
+        "push:delete-account": "AWS_PAGER= aws lambda update-function-code --function-name guidex-delete-account --zip-file fileb://lambda-function.zip",
         "deploy:text-prompt": "npm run build:text-prompt && npm run push:text-prompt",
         "deploy:image-annotation": "npm run build:image-annotation && npm run push:image-annotation",
         "deploy:image-recognition": "npm run build:image-recognition && npm run push:image-recognition",
         "deploy:text-to-speech": "npm run build:text-to-speech && npm run push:text-to-speech",
-        "deploy:all": "npm run deploy:text-prompt && npm run deploy:image-annotation && npm run deploy:image-recognition && npm run deploy:text-to-speech"
+        "deploy:delete-account": "npm run build:delete-account && npm run push:delete-account",
+        "deploy:all": "npm run deploy:text-prompt && npm run deploy:image-annotation && npm run deploy:image-recognition && npm run deploy:text-to-speech && npm run deploy:delete-account"
     },
     "devDependencies": {
         "@eslint/js": "^9.21.0",

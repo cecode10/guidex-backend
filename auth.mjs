@@ -73,7 +73,10 @@ export const verifyFirebaseToken = async (idToken, options = {}) => {
                 algorithms: ["RS256"],
             },
         );
-        return decoded.payload;
+        const payload = decoded.payload;
+        // Firebase JWT uses "sub" for user ID; Admin SDK adds "uid" as alias.
+        // When using raw JWT verification, ensure uid is available for consistency.
+        return { ...payload, uid: payload.uid ?? payload.sub };
     } catch (verifyError) {
         const err = new Error("unauthorized");
         err.statusCode = 401;

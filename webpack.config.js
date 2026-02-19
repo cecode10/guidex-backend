@@ -10,6 +10,7 @@ const multiEntry = {
   "guidex-image-annotation-lambda": './lambdas/guidex-image-annotation-lambda.mjs',
   "guidex-image-recognition-lambda": './lambdas/guidex-image-recognition-lambda.mjs',
   "guidex-text-to-speech-lambda": './lambdas/guidex-text-to-speech-lambda.mjs',
+  "guidex-delete-account-lambda": './lambdas/guidex-delete-account-lambda.mjs',
 };
 
 export default (env = {}) => {
