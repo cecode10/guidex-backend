@@ -1,8 +1,7 @@
 import { answerToPrompt } from "../open-ai-service.mjs";
-import { defaultPrompt } from "../prompt.mjs";
 import { requireAuth } from "../auth.mjs";
 import { parseRequestBody, validateMandatoryFields } from "../event-utils.mjs";
-import { getSystemPrompt } from "../persona.mjs";
+import { getSystemPrompt } from "../system-prompt.mjs";
 
 const toHttpResponse = (statusCode, body) => {
     return {
@@ -16,16 +15,17 @@ const toHttpResponse = (statusCode, body) => {
 };
 
 const processImageAnnotationPrompt = async (payload) => {
-    validateMandatoryFields(payload, ["input", "persona"])
+    validateMandatoryFields(payload, ["input", "persona", "language"])
     const topic = payload.input.trim();
     const persona = payload.persona.trim();
-    const userPrompt = `Tell me about ${topic}`;
-
-    const userPromptResponse = await answerToPrompt(getSystemPrompt(persona), userPrompt);
-    console.log("user_prompt_response = " + userPromptResponse);
+    const language = payload.language.trim();
+    const userPrompt = `Tell me about ${topic}$`;
+    const systemPrompt = getSystemPrompt(persona, language);
+    const modelResponse = await answerToPrompt(systemPrompt, userPrompt);
+    console.log("assistant response = " + modelResponse);
 
     return {
-        response: userPromptResponse,
+        response: modelResponse,
     };
 };
 

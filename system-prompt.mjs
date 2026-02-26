@@ -3,13 +3,20 @@ import {
     dreamerPrompt,
     professorPrompt,
     catPrompt,
-} from "./prompt.mjs";
+} from "./prompts.mjs";
 
 const personas = {
     default: defaultPrompt,
     dreamer: dreamerPrompt,
     professor: professorPrompt,
     cat: catPrompt,
+};
+
+const setPreferedLanguage = (systemPrompt, language) => {
+    if (language) {
+        return systemPrompt + `\n    - Answer the question in ${language} language.`;
+    }
+    return systemPrompt + "\n    - Answer in the language of the question.";
 };
 
 /**
@@ -19,7 +26,8 @@ const personas = {
  * @param {string} personaKey - One of: "dreamer", "professor", "cat", "default"
  * @returns {string} The matching system prompt
  */
-export const getSystemPrompt = (personaKey) => {
+export const getSystemPrompt = (personaKey, language) => {
     const key = (personaKey || "").toLowerCase().trim();
-    return personas[key] || personas.default;
+    const systemPrompt = personas[key] || personas.default;
+    return setPreferedLanguage(systemPrompt, language);
 };

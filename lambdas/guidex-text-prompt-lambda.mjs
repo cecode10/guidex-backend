@@ -1,6 +1,6 @@
 import { answerToPrompt } from "../open-ai-service.mjs";
-import { summarySystemPrompt, buildSummaryUserPrompt } from "../prompt.mjs";
-import { getSystemPrompt } from "../persona.mjs";
+import { summarySystemPrompt, buildSummaryUserPrompt } from "../prompts.mjs";
+import { getSystemPrompt } from "../system-prompt.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields, parseRequestBody } from "../event-utils.mjs";
 
@@ -29,7 +29,8 @@ const processTextPrompt = async (payload) => {
     validateMandatoryFields(payload, ["input", "persona"])
     const topic = payload.input.trim();
     const persona = payload.persona.trim();
-    const systemPromptWithChatHistory = buildSystemPromptWithChatHisotry(getSystemPrompt(persona), payload.conversation);
+    const systemPrompt = getSystemPrompt(persona);
+    const systemPromptWithChatHistory = buildSystemPromptWithChatHisotry(systemPrompt, payload.conversation);
     const userPrompt = `${topic}`;
 
     const userPromptResponse = await answerToPrompt(systemPromptWithChatHistory, userPrompt);

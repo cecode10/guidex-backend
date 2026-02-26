@@ -14,7 +14,7 @@ export const parseRequestBody = (event) => {
     }
     let raw = event.body;
     try {
-        console.log("body=", raw);
+        // console.log("body=", raw);
         return JSON.parse(raw);
     } catch {
         const error = new Error("Invalid JSON in request body");

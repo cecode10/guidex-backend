@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { buildLocationPrompt, imageRecognitionPrompt } from "./prompt.mjs";
+import { buildLocationPrompt, imageRecognitionPrompt } from "./prompts.mjs";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
