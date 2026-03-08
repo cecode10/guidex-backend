@@ -23,21 +23,21 @@
         "deploy:image-recognition": "npm run build:image-recognition && npm run push:image-recognition",
         "deploy:text-to-speech": "npm run build:text-to-speech && npm run push:text-to-speech",
         "deploy:delete-account": "npm run build:delete-account && npm run push:delete-account",
-        "deploy:all": "npm run deploy:text-prompt && npm run deploy:image-annotation && npm run deploy:image-recognition && npm run deploy:text-to-speech && npm run deploy:delete-account"
+        "deploy:all": "npm run deploy:text-prompt && npm run deploy:image-annotation && npm run deploy:image-recognition && npm run deploy:text-to-speech && npm run deploy:delete-account",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "devDependencies": {
         "@eslint/js": "^9.21.0",
         "eslint": "^9.21.0",
         "globals": "^16.0.0",
         "terser-webpack-plugin": "^5.3.16",
+        "vitest": "^4.0.18",
         "webpack": "^5.98.0",
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
         "jose": "^5.2.0",
-        "@aws-sdk/client-bedrock-runtime": "^3.470.0",
-        "@aws-sdk/client-cloudwatch": "^3.470.0",
-        "@aws-sdk/client-lambda": "^3.470.0",
         "openai": "^6.17.0"
     }
 }

@@ -1,8 +1,7 @@
-import { answerToPrompt } from "../open-ai-service.mjs";
-import { summarySystemPrompt, buildSummaryUserPrompt } from "../prompts.mjs";
-import { getSystemPrompt } from "../system-prompt.mjs";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields, parseRequestBody } from "../event-utils.mjs";
+import {answerToPrompt} from "../open-ai-service.mjs";
+import {getSystemPrompt, getSummaryPrompt} from "../system-prompt.mjs";
+import {requireAuth} from "../auth.mjs";
+import {validateMandatoryFields, parseRequestBody} from "../event-utils.mjs";
 
 const toHttpResponse = (statusCode, body) => {
     return {
@@ -16,19 +15,23 @@ const toHttpResponse = (statusCode, body) => {
 };
 
 const buildSystemPromptWithChatHisotry = (systemPrompt, conversation) => {
-    return `${systemPrompt}
-Conversation History:
-- Consider the below conversation history when answering the users question:
+    if (conversation) {
+        return `${systemPrompt}
+        Conversation History:
+        - Consider the below conversation history when answering the users question:
 
-<BEGIN_OF_CONVERSATION_HISTORY>
-${conversation || ""}
-<END_OF_CONVERSATION_HISTORY>`;
+        <BEGIN_OF_CONVERSATION_HISTORY>
+        ${conversation}
+        <END_OF_CONVERSATION_HISTORY>`;
+    }
+    return systemPrompt;
 };
 
 const processTextPrompt = async (payload) => {
-    validateMandatoryFields(payload, ["input", "persona"])
+    validateMandatoryFields(payload, ["input", "persona", "language"])
     const topic = payload.input.trim();
     const persona = payload.persona.trim();
+    const language = payload.language.trim();
     const systemPrompt = getSystemPrompt(persona);
     const systemPromptWithChatHistory = buildSystemPromptWithChatHisotry(systemPrompt, payload.conversation);
     const userPrompt = `${topic}`;
@@ -38,8 +41,8 @@ const processTextPrompt = async (payload) => {
 
     if (payload.generate_summary) {
         console.log("generating summary with prompt = " + topic);
-
-        const responseSummary = await answerToPrompt(summarySystemPrompt, buildSummaryUserPrompt(topic));
+        const summaryPrompt = getSummaryPrompt(language);
+        const responseSummary = await answerToPrompt(summaryPrompt, topic);
         console.log("response_summary = " + responseSummary);
         return {
             response_summary: responseSummary,

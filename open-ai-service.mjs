@@ -7,6 +7,9 @@ const openai = new OpenAI({
 
 const model4o = "gpt-4o-mini";
 const model41 = "gpt-4.1-mini";
+const model40tts = "gpt-4o-mini-tts";
+const model5nano = "gpt-5-nano";
+const model5mini = "gpt-5-mini";
 
 const normalizeOpenAiError = (error) => {
     if (!error || typeof error !== "object") {
@@ -35,9 +38,11 @@ export const analyzeImage = async (image, location) => {
     ]
         .filter(Boolean)
         .join("\n");
-    console.log("finalPrompt=" + finalPrompt);
+    const model = model41;
+    console.log("finalPrompt = " + finalPrompt);
+    console.log("using model = " + model);
     const payload = {
-        model: model41,
+        model: model,
         input: [
             {
                 role: "user",
@@ -71,11 +76,13 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
+    const model = model4o;
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
+    console.log("using model = " + model);
     try {
         const response = await openai.chat.completions.create({
-            model: model4o,
+            model: model,
             messages: [
                 {
                     role: "system",
@@ -105,9 +112,11 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
 
 export const textToSpeech = async (payload, options = {}) => {
     const inputText = payload.text.trim();
-    const model = options.model || "gpt-4o-mini-tts";
+    const model = options.model || model40tts;
     const voice = options.voice || "alloy";
     const format = options.format || "mp3";
+
+    console.log("using model = " + model);
 
     try {
         const response = await openai.audio.speech.create({

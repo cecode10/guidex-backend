@@ -3,6 +3,7 @@ import {
     dreamerPrompt,
     professorPrompt,
     catPrompt,
+    summaryPrompt
 } from "./prompts.mjs";
 
 const personas = {
@@ -14,7 +15,7 @@ const personas = {
 
 const setPreferedLanguage = (systemPrompt, language) => {
     if (language) {
-        return systemPrompt + `\n    - Answer the question in ${language} language.`;
+        return systemPrompt + `\n    - Answer in ${language} language.`;
     }
     return systemPrompt + "\n    - Answer in the language of the question.";
 };
@@ -31,3 +32,7 @@ export const getSystemPrompt = (personaKey, language) => {
     const systemPrompt = personas[key] || personas.default;
     return setPreferedLanguage(systemPrompt, language);
 };
+
+export const getSummaryPrompt = (language) => {
+    return setPreferedLanguage(summaryPrompt, language);
+}
