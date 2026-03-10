@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { buildLocationPrompt, imageRecognitionPrompt } from "./prompts.mjs";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -25,19 +24,17 @@ const normalizeOpenAiError = (error) => {
     return error;
 };
 
-export const analyzeImage = async (image, location) => {
+export const analyzeImage = async (image, prompt) => {
     const imageInput = image?.trim();
     if (!imageInput) {
         throw new Error("image is required");
     }
 
-    const locationPrompt = buildLocationPrompt(location);
-    const finalPrompt = [
-        ...imageRecognitionPrompt,
-        locationPrompt,
-    ]
-        .filter(Boolean)
-        .join("\n");
+    const finalPrompt = prompt?.trim();
+    if (!finalPrompt) {
+        throw new Error("prompt is required");
+    }
+
     const model = model41;
     console.log("finalPrompt = " + finalPrompt);
     console.log("using model = " + model);

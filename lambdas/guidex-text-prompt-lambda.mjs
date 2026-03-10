@@ -37,7 +37,7 @@ const processTextPrompt = async (payload) => {
     const userPrompt = `${topic}`;
 
     const userPromptResponse = await answerToPrompt(systemPromptWithChatHistory, userPrompt);
-    console.log("user_prompt_response = " + userPromptResponse);
+    console.log("response = " + userPromptResponse);
 
     if (payload.generate_summary) {
         console.log("generating summary with prompt = " + topic);

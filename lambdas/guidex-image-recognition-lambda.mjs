@@ -1,6 +1,7 @@
 import { analyzeImage } from "../open-ai-service.mjs";
 import { requireAuth } from "../auth.mjs";
 import { parseRequestBody, validateMandatoryFields } from "../event-utils.mjs";
+import { buildLocationPrompt, imageRecognitionPrompt } from "../prompts.mjs";
 
 const toHttpResponse = (statusCode, body) => {
     return {
@@ -16,7 +17,13 @@ const toHttpResponse = (statusCode, body) => {
 const processImageRecognition = async (payload) => {
     validateMandatoryFields(payload, ["input"])
     const imageBase64 = payload.input.trim();
-    const userPromptResponse = await analyzeImage(imageBase64, payload.location);
+    const finalPrompt = [
+        ...imageRecognitionPrompt,
+        buildLocationPrompt(payload.location),
+    ]
+        .filter(Boolean)
+        .join("\n");
+        const userPromptResponse = await analyzeImage(imageBase64, finalPrompt);
     console.log("user_prompt_response = " + userPromptResponse);
     return {
         response: userPromptResponse,
