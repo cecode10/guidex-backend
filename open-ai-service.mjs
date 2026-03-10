@@ -58,7 +58,10 @@ export const analyzeImage = async (image, prompt) => {
     };
     // console.log("payload = " + JSON.stringify(payload));
     try {
+        const start = Date.now();
         const response = await openai.responses.create(payload);
+        const elapsed = Date.now() - start;
+        console.log(`[analyzeImage] OpenAI API responded in ${elapsed}ms`);
         console.log("response.output_text = " + JSON.stringify(response));
         return response.output_text;
     } catch (error) {
@@ -78,6 +81,7 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     console.log("userPrompt = " + userPrompt);
     console.log("using model = " + model);
     try {
+        const start = Date.now();
         const response = await openai.chat.completions.create({
             model: model,
             messages: [
@@ -101,6 +105,8 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
                 }
             ]
         });
+        const elapsed = Date.now() - start;
+        console.log(`[answerToPrompt] OpenAI API responded in ${elapsed}ms`);
         return response.choices[0].message.content;
     } catch (error) {
         throw normalizeOpenAiError(error);
@@ -116,12 +122,15 @@ export const textToSpeech = async (payload, options = {}) => {
     console.log("using model = " + model);
 
     try {
+        const start = Date.now();
         const response = await openai.audio.speech.create({
             model,
             voice,
             input: inputText,
             format,
         });
+        const elapsed = Date.now() - start;
+        console.log(`[textToSpeech] OpenAI API responded in ${elapsed}ms`);
 
         const audioBuffer = Buffer.from(await response.arrayBuffer());
         return audioBuffer.toString("base64");

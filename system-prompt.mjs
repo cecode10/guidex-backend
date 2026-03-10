@@ -1,16 +1,19 @@
 import {
     defaultPrompt,
-    dreamerPrompt,
-    professorPrompt,
+    bloggerPrompt,
+    expertPrompt,
     catPrompt,
-    summaryPrompt
+    summaryPrompt,
+    gamerPrompt,
+    imageRecognitionPrompt
 } from "./prompts.mjs";
 
 const personas = {
     default: defaultPrompt,
-    dreamer: dreamerPrompt,
-    professor: professorPrompt,
+    blogger: bloggerPrompt,
+    expert: expertPrompt,
     cat: catPrompt,
+    gamer: gamerPrompt,
 };
 
 const setPreferedLanguage = (systemPrompt, language) => {
@@ -32,6 +35,10 @@ export const getSystemPrompt = (personaKey, language) => {
     const systemPrompt = personas[key] || personas.default;
     return setPreferedLanguage(systemPrompt, language);
 };
+
+export const getImageRecognitionPrompt = (language) => {
+    return setPreferedLanguage(imageRecognitionPrompt, language);
+}
 
 export const getSummaryPrompt = (language) => {
     return setPreferedLanguage(summaryPrompt, language);
