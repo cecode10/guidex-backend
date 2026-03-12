@@ -34,9 +34,9 @@ export const handler = async (event) => {
 
         validateMandatoryFields(body, ["text", "persona", "gender"]);
 
-        const inputText = payload.text.trim();
-        const persona = payload.persona.trim();
-        const gender = payload.gender.trim();
+        const inputText = body.text.trim();
+        const persona = body.persona.trim();
+        const gender = body.gender.trim();
         let voice = GENDER_TO_VOICE[gender.toLowerCase()] ?? VOICE_ALLOY;
         if (personas.cat === persona.toLowerCase()) {
             voice = VOICE_FABLE;
