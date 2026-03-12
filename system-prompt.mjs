@@ -8,7 +8,7 @@ import {
     imageRecognitionPrompt
 } from "./prompts.mjs";
 
-const personas = {
+export const personasToPromptMapping = {
     default: defaultPrompt,
     blogger: bloggerPrompt,
     expert: expertPrompt,
@@ -32,7 +32,7 @@ const setPreferedLanguage = (systemPrompt, language) => {
  */
 export const getSystemPrompt = (personaKey, language) => {
     const key = (personaKey || "").toLowerCase().trim();
-    const systemPrompt = personas[key] || personas.default;
+    const systemPrompt = personasToPromptMapping[key] || personasToPromptMapping.default;
     return setPreferedLanguage(systemPrompt, language);
 };
 

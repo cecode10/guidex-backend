@@ -113,13 +113,12 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     }
 }
 
-export const textToSpeech = async (payload, options = {}) => {
-    const inputText = payload.text.trim();
+export const textToSpeech = async (inputText, options = {}) => {
     const model = options.model || model40tts;
     const voice = options.voice || "alloy";
     const format = options.format || "mp3";
 
-    console.log("using model = " + model);
+    console.log("using model = " + model + ", voice = " + voice + ", format = " + format);
 
     try {
         const start = Date.now();

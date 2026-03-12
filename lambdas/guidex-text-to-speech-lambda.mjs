@@ -1,12 +1,21 @@
 import { textToSpeech } from "../open-ai-service.mjs";
 import { requireAuth } from "../auth.mjs";
 import { parseRequestBody, validateMandatoryFields } from "../event-utils.mjs";
+import { personasToPromptMapping } from "../system-prompt.mjs";
 
 const GENDER_TO_VOICE = {
     female: "marin",
     male: "echo",
 };
-const DEFAULT_VOICE = "alloy";
+const VOICE_ALLOY = "alloy";
+const VOICE_FABLE = "fable";
+
+export const personas = {
+    blogger: "blogger",
+    expert: "expert",
+    cat: "cat",
+    gamer: "gamer",
+};
 
 const toHttpResponse = (statusCode, body) => ({
     statusCode,
@@ -23,9 +32,16 @@ export const handler = async (event) => {
         console.log("auth: uid=%s email=%s", decoded.uid, decoded.email || "(none)");
         const body = parseRequestBody(event);
 
-        validateMandatoryFields(body, ["text"]);
-        const voice = GENDER_TO_VOICE[body.gender?.toLowerCase()] ?? DEFAULT_VOICE;
-        const audioBase64 = await textToSpeech(body, { voice });
+        validateMandatoryFields(body, ["text", "persona", "gender"]);
+
+        const inputText = payload.text.trim();
+        const persona = payload.persona.trim();
+        const gender = payload.gender.trim();
+        let voice = GENDER_TO_VOICE[gender.toLowerCase()] ?? VOICE_ALLOY;
+        if (personas.cat === persona.toLowerCase()) {
+            voice = VOICE_FABLE;
+        }
+        const audioBase64 = await textToSpeech(inputText, { voice });
         return toHttpResponse(200, { audio: audioBase64 });
     } catch (error) {
         console.error("text-to-speech error:", error?.message || error);
