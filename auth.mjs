@@ -8,15 +8,37 @@ const FIREBASE_CERTS_URL =
     "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 
 let cachedPublicKeys = null;
+let cacheExpiresAt = 0;
 
-const getPublicKeys = async () => {
-    if (cachedPublicKeys) {
-        return cachedPublicKeys;
-    }
+const fetchPublicKeys = async () => {
+    const start = Date.now();
     const res = await fetch(FIREBASE_CERTS_URL);
-    cachedPublicKeys = await res.json();
+    const keys = await res.json();
+    const elapsed = Date.now() - start;
+    console.log(`[auth] Google certs fetch responded in ${elapsed}ms`);
+
+    // Honor Cache-Control: max-age so we re-fetch only when Google rotates the certs.
+    // Fall back to 1 hour if the header is missing or unparseable.
+    const cc = res.headers.get("cache-control") ?? "";
+    const maxAgeMatch = cc.match(/max-age=(\d+)/);
+    const maxAgeSecs = maxAgeMatch ? parseInt(maxAgeMatch[1], 10) : 3600;
+    cachedPublicKeys = keys;
+    cacheExpiresAt = Date.now() + maxAgeSecs * 1000;
+
     return cachedPublicKeys;
 };
+
+const getPublicKeys = () => {
+    if (cachedPublicKeys && Date.now() < cacheExpiresAt) {
+        return cachedPublicKeys instanceof Promise ? cachedPublicKeys : Promise.resolve(cachedPublicKeys);
+    }
+    // Store the in-flight promise so concurrent calls share one fetch.
+    cachedPublicKeys = fetchPublicKeys();
+    return cachedPublicKeys;
+};
+
+// Pre-warm during Lambda init so the first real request doesn't pay the network cost.
+getPublicKeys().catch(() => {});
 
 /**
  * Extracts the Bearer token from Authorization header.

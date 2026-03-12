@@ -26,7 +26,10 @@ const toHttpResponse = (statusCode, body) => ({
     body: JSON.stringify(body),
 });
 
+const LAMBDA_NAME = "text-to-speech";
+
 export const handler = async (event) => {
+    const start = Date.now();
     try {
         const decoded = await requireAuth(event);
         console.log("auth: uid=%s email=%s", decoded.uid, decoded.email || "(none)");
@@ -42,10 +45,14 @@ export const handler = async (event) => {
             voice = VOICE_FABLE;
         }
         const audioBase64 = await textToSpeech(inputText, { voice });
+        const elapsed = Date.now() - start;
+        console.log(`[${LAMBDA_NAME}] request completed in ${elapsed}ms status=200`);
         return toHttpResponse(200, { audio: audioBase64 });
     } catch (error) {
         console.error("text-to-speech error:", error?.message || error);
         const statusCode = error?.statusCode || 500;
+        const elapsed = Date.now() - start;
+        console.log(`[${LAMBDA_NAME}] request completed in ${elapsed}ms status=${statusCode}`);
         const errorBody = {
             error: statusCode === 401 ? "unauthorized" : (error?.message || "text-to-speech failed"),
         };
