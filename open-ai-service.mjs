@@ -121,18 +121,28 @@ export const textToSpeech = async (inputText, options = {}) => {
     console.log("using model = " + model + ", voice = " + voice + ", format = " + format);
 
     try {
-        const start = Date.now();
+        const t0 = Date.now();
         const response = await openai.audio.speech.create({
             model,
             voice,
             input: inputText,
             format,
         });
-        const elapsed = Date.now() - start;
-        console.log(`[textToSpeech] OpenAI API responded in ${elapsed}ms`);
+        const t1 = Date.now();
 
-        const audioBuffer = Buffer.from(await response.arrayBuffer());
-        return audioBuffer.toString("base64");
+        const arrayBuf = await response.arrayBuffer();
+        const t2 = Date.now();
+
+        const audioBuffer = Buffer.from(arrayBuf);
+        const base64 = audioBuffer.toString("base64");
+        const t3 = Date.now();
+
+        const bodyBytes = arrayBuf.byteLength;
+        console.log(
+            `[textToSpeech] api=${t1 - t0}ms download=${t2 - t1}ms encode=${t3 - t2}ms total=${t3 - t0}ms bodySize=${bodyBytes}b`,
+        );
+
+        return base64;
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
