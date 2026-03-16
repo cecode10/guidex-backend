@@ -3,7 +3,6 @@
  * Requires initializeApp() to have been called (see index.mjs).
  */
 import { getAuth } from "firebase-admin/auth";
-import { checkNewUser } from "./analytics.mjs";
 
 /**
  * Extracts the Bearer token from Authorization header.
@@ -56,7 +55,5 @@ export const requireAuth = async (req) => {
         err.statusCode = 401;
         throw err;
     }
-    const decoded = await verifyFirebaseToken(authHeader);
-    checkNewUser(decoded.uid);
-    return decoded;
+    return verifyFirebaseToken(authHeader);
 };

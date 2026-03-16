@@ -3,7 +3,6 @@ import { defineSecret } from "firebase-functions/params";
 import { answerToPrompt } from "../open-ai-service.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
-import { trackEvent, EVENT_TYPES } from "../analytics.mjs";
 import { getSystemPrompt } from "../system-prompt.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
@@ -34,11 +33,6 @@ export const imageAnnotation = onRequest({ cors: true, region: "europe-west3", s
         const elapsed = Date.now() - start;
         console.log(`[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200`);
         res.json(result);
-        trackEvent(EVENT_TYPES.IMAGE_ANNOTATION, {
-            uid: decoded.uid,
-            persona: req.body.persona,
-            language: req.body.language,
-        });
     } catch (error) {
         console.error("image-annotation error:", error?.message || error);
         const statusCode = error?.statusCode || 500;
