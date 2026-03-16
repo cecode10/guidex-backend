@@ -2,28 +2,20 @@
     "name": "guidex-backend",
     "version": "1.0.0",
     "type": "module",
-    "main": "lambdas/guidex-text-prompt-lambda.mjs",
+    "main": "index.mjs",
     "sideEffects": false,
+    "engines": {
+        "node": "22"
+    },
     "scripts": {
-        "clean:bundle": "rm -rf dist/* -f lambda-function.zip",
-        "webpack": "npx webpack --config webpack.config.js",
-        "zip": "zip -j -r lambda-function.zip dist/*",
-        "build:text-prompt": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-prompt-lambda.mjs --env outputFilename=guidex-text-prompt-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "build:image-annotation": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-annotation-lambda.mjs --env outputFilename=guidex-image-annotation-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "build:image-recognition": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-image-recognition-lambda.mjs --env outputFilename=guidex-image-recognition-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "build:text-to-speech": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-text-to-speech-lambda.mjs --env outputFilename=guidex-text-to-speech-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "build:delete-account": "npm run clean:bundle && npx webpack --config webpack.config.js --env entry=./lambdas/guidex-delete-account-lambda.mjs --env outputFilename=guidex-delete-account-lambda.js && zip -j -r lambda-function.zip dist/*.js",
-        "push:text-prompt": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-prompt --zip-file fileb://lambda-function.zip",
-        "push:image-annotation": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-annotation --zip-file fileb://lambda-function.zip",
-        "push:image-recognition": "AWS_PAGER= aws lambda update-function-code --function-name guidex-image-recognition --zip-file fileb://lambda-function.zip",
-        "push:text-to-speech": "AWS_PAGER= aws lambda update-function-code --function-name guidex-text-to-speach --zip-file fileb://lambda-function.zip",
-        "push:delete-account": "AWS_PAGER= aws lambda update-function-code --function-name guidex-delete-account --zip-file fileb://lambda-function.zip",
-        "deploy:text-prompt": "npm run build:text-prompt && npm run push:text-prompt",
-        "deploy:image-annotation": "npm run build:image-annotation && npm run push:image-annotation",
-        "deploy:image-recognition": "npm run build:image-recognition && npm run push:image-recognition",
-        "deploy:text-to-speech": "npm run build:text-to-speech && npm run push:text-to-speech",
-        "deploy:delete-account": "npm run build:delete-account && npm run push:delete-account",
-        "deploy:all": "npm run deploy:text-prompt && npm run deploy:image-annotation && npm run deploy:image-recognition && npm run deploy:text-to-speech && npm run deploy:delete-account",
+        "deploy": "firebase deploy --only functions",
+        "deploy:textPrompt": "firebase deploy --only functions:textPrompt",
+        "deploy:imageAnnotation": "firebase deploy --only functions:imageAnnotation",
+        "deploy:imageRecognition": "firebase deploy --only functions:imageRecognition",
+        "deploy:textToSpeech": "firebase deploy --only functions:textToSpeech",
+        "deploy:deleteAccount": "firebase deploy --only functions:deleteAccount",
+        "serve": "firebase emulators:start --only functions",
+        "logs": "firebase functions:log",
         "test": "vitest run",
         "test:watch": "vitest"
     },
@@ -31,13 +23,11 @@
         "@eslint/js": "^9.21.0",
         "eslint": "^9.21.0",
         "globals": "^16.0.0",
-        "terser-webpack-plugin": "^5.3.16",
-        "vitest": "^4.0.18",
-        "webpack": "^5.98.0",
-        "webpack-cli": "^6.0.1"
+        "vitest": "^4.0.18"
     },
     "dependencies": {
-        "jose": "^5.2.0",
+        "firebase-admin": "^13.0.0",
+        "firebase-functions": "^7.1.1",
         "openai": "^6.17.0"
     }
 }

@@ -1,8 +1,12 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+let openai;
+const getClient = () => {
+    if (!openai) {
+        openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
+    return openai;
+};
 
 const model4o = "gpt-4o-mini";
 const model41 = "gpt-4.1-mini";
@@ -59,7 +63,7 @@ export const analyzeImage = async (image, prompt) => {
     // console.log("payload = " + JSON.stringify(payload));
     try {
         const start = Date.now();
-        const response = await openai.responses.create(payload);
+        const response = await getClient().responses.create(payload);
         const elapsed = Date.now() - start;
         console.log(`[analyzeImage] OpenAI API responded in ${elapsed}ms`);
         console.log("response.output_text = " + JSON.stringify(response));
@@ -82,7 +86,7 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     console.log("using model = " + model);
     try {
         const start = Date.now();
-        const response = await openai.chat.completions.create({
+        const response = await getClient().chat.completions.create({
             model: model,
             messages: [
                 {
@@ -122,7 +126,7 @@ export const textToSpeech = async (inputText, options = {}) => {
 
     try {
         const t0 = Date.now();
-        const response = await openai.audio.speech.create({
+        const response = await getClient().audio.speech.create({
             model,
             voice,
             input: inputText,

@@ -1,27 +1,17 @@
+import { onRequest } from "firebase-functions/v2/https";
 import { deleteFirebaseUser } from "../google-service.mjs";
 import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields, parseRequestBody } from "../event-utils.mjs";
+import { validateMandatoryFields } from "../event-utils.mjs";
 
-const toHttpResponse = (statusCode, body) => {
-    return {
-        statusCode,
-        headers: {
-            "content-type": "application/json",
-            "access-control-allow-origin": "*",
-        },
-        body: JSON.stringify(body),
-    };
-};
+const FUNCTION_NAME = "deleteAccount";
 
-const LAMBDA_NAME = "delete-account";
-
-export const handler = async (event) => {
+export const deleteAccount = onRequest({ cors: true, region: "europe-west3" }, async (req, res) => {
     const start = Date.now();
     try {
-        const decoded = await requireAuth(event);
+        const decoded = await requireAuth(req);
         console.log("auth: uid=%s email=%s", decoded.uid, decoded.email || "(none)");
 
-        const payload = parseRequestBody(event);
+        const payload = req.body;
         validateMandatoryFields(payload, ["uid"]);
 
         if (payload.uid !== decoded.uid) {
@@ -32,16 +22,16 @@ export const handler = async (event) => {
 
         const result = await deleteFirebaseUser(payload.uid);
         const elapsed = Date.now() - start;
-        console.log(`[${LAMBDA_NAME}] request completed in ${elapsed}ms status=200`);
-        return toHttpResponse(200, result);
+        console.log(`[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200`);
+        res.json(result);
     } catch (error) {
         console.error("delete-account error:", error?.message || error);
         const statusCode = error?.statusCode || error?.status || 500;
         const elapsed = Date.now() - start;
-        console.log(`[${LAMBDA_NAME}] request completed in ${elapsed}ms status=${statusCode}`);
+        console.log(`[${FUNCTION_NAME}] request completed in ${elapsed}ms status=${statusCode}`);
         const errorBody = {
             error: statusCode === 401 ? "unauthorized" : (error?.message || "delete-account failed"),
         };
-        return toHttpResponse(statusCode, errorBody);
+        res.status(statusCode).json(errorBody);
     }
-};
+});
