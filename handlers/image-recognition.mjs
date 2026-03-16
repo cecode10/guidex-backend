@@ -3,6 +3,7 @@ import { defineSecret } from "firebase-functions/params";
 import { analyzeImage } from "../open-ai-service.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
+import { trackEvent, EVENT_TYPES } from "../analytics.mjs";
 import { buildLocationPrompt } from "../prompts.mjs";
 import { getImageRecognitionPrompt } from "../system-prompt.mjs";
 
@@ -37,6 +38,11 @@ export const imageRecognition = onRequest({ cors: true, region: "europe-west3", 
         const elapsed = Date.now() - start;
         console.log(`[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200`);
         res.json(result);
+        trackEvent(EVENT_TYPES.IMAGE_RECOGNITION, {
+            uid: decoded.uid,
+            language: req.body.language,
+            hasLocation: !!req.body.location,
+        });
     } catch (error) {
         console.error("image-recognition error:", error?.message || error);
         const statusCode = error?.statusCode || 500;

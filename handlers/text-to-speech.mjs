@@ -3,6 +3,7 @@ import { defineSecret } from "firebase-functions/params";
 import { textToSpeech } from "../open-ai-service.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
+import { trackEvent, EVENT_TYPES } from "../analytics.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
@@ -45,6 +46,11 @@ export const textToSpeechFn = onRequest({ cors: true, region: "europe-west3", se
             `[${FUNCTION_NAME}] auth=${tAuth - t0}ms tts=${tTts - tAuth}ms total=${tTts - t0}ms status=200`,
         );
         res.json({ audio: audioBase64 });
+        trackEvent(EVENT_TYPES.TTS_REQUEST, {
+            uid: decoded.uid,
+            persona,
+            gender,
+        });
     } catch (error) {
         console.error("text-to-speech error:", error?.message || error);
         const statusCode = error?.statusCode || 500;
