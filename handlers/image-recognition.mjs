@@ -15,10 +15,7 @@ const processImageRecognition = async (payload) => {
     const imageBase64 = payload.input.trim();
     const language = payload.language.trim();
     const systemPrompt = getImageRecognitionPrompt(language);
-    const finalPrompt = [
-        ...systemPrompt,
-        buildLocationPrompt(payload.location),
-    ]
+    const finalPrompt = [systemPrompt, buildLocationPrompt(payload.location)]
         .filter(Boolean)
         .join("\n");
     const userPromptResponse = await analyzeImage(imageBase64, finalPrompt);
