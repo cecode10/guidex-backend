@@ -29,10 +29,16 @@ ${commonFormattingRules}`;
 
 
 export const imageRecognitionPrompt = [
-    "What object is on this image?",
-    "Return only its name and nothing else.",
-    "Look first for landmarks and famous places, then for objects.",
-    "Do not exceed 22 characters.",
+    "Identify the main subject in the image.",
+    "If it is a well-known landmark, building, site, or monument, return its most common proper name.",
+    "If it is not confidently recognizable as a specific place, return a short descriptive label based on visible evidence, such as baroque castle, gothic church, stone bridge, seaside monument, or historic building.",
+    "If optional latitude/longitude makes the broader area clear, you may add a short location detail such as church in Valencia, castle near Sintra, or beach in Barcelona.",
+    "Use attached latitude/longitude only as supporting context to disambiguate visually plausible nearby places, never as the sole reason to guess.",
+    "Prefer visual facts first, then add style, type, or broad location only when they are plausible and useful.",
+    "Do not invent names or guess specific landmarks with low confidence.",
+    "Return only one short answer and nothing else.",
+    "Prefer the shortest commonly used name.",
+    "Do not exceed 40 characters.",
 ];
 
 export const buildLocationPrompt = (location) => {
@@ -40,8 +46,8 @@ export const buildLocationPrompt = (location) => {
         return "";
     }
     return (
-        "Location: use the following location optionaly if you need help " +
-        "to determine the name of a place or landmark: " +
+        "Location hint: use the following latitude/longitude only as optional supporting context " +
+        "to help disambiguate a visually plausible place or landmark. Do not guess from location alone: " +
         JSON.stringify(location)
     );
 };
