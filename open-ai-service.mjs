@@ -117,6 +117,44 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     }
 }
 
+export const answerToPromptStreaming = async function* (systemPrompt, userPrompt) {
+    if (!systemPrompt?.trim()) {
+        throw new Error("system prompt is required");
+    }
+    if (!userPrompt?.trim()) {
+        throw new Error("user prompt is required");
+    }
+    const model = model4o;
+    console.log("systemPrompt = " + systemPrompt);
+    console.log("userPrompt = " + userPrompt);
+    console.log("using model (streaming) = " + model);
+    try {
+        const start = Date.now();
+        const stream = await getClient().chat.completions.create({
+            model: model,
+            stream: true,
+            messages: [
+                {
+                    role: "system",
+                    content: [{ type: "text", text: systemPrompt }],
+                },
+                {
+                    role: "user",
+                    content: [{ type: "text", text: userPrompt }],
+                },
+            ],
+        });
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) yield delta;
+        }
+        const elapsed = Date.now() - start;
+        console.log(`[answerToPromptStreaming] OpenAI stream completed in ${elapsed}ms`);
+    } catch (error) {
+        throw normalizeOpenAiError(error);
+    }
+};
+
 export const textToSpeech = async (inputText, options = {}) => {
     const model = options.model || model40tts;
     const voice = options.voice || "alloy";
