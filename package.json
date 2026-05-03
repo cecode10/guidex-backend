@@ -14,6 +14,8 @@
         "deploy:imageRecognition": "firebase deploy --only functions:imageRecognition",
         "deploy:textToSpeech": "firebase deploy --only functions:textToSpeech",
         "deploy:deleteAccount": "firebase deploy --only functions:deleteAccount",
+        "deploy:onUserProfileUpdate": "firebase deploy --only functions:onUserProfileUpdate",
+        "deploy:firestore": "firebase deploy --only firestore",
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",
         "test": "vitest run",

@@ -37,10 +37,7 @@ export const getSystemPrompt = (personaKey, language) => {
 };
 
 export const getImageRecognitionPrompt = (language) => {
-    const base = Array.isArray(imageRecognitionPrompt)
-        ? imageRecognitionPrompt.join("\n")
-        : imageRecognitionPrompt;
-    return setPreferedLanguage(base, language);
+    return setPreferedLanguage(imageRecognitionPrompt, language);
 };
 
 export const getSummaryPrompt = (language) => {

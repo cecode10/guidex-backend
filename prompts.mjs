@@ -28,18 +28,15 @@ ${commonObjectJobAndFollowups}
 ${commonFormattingRules}`;
 
 
-export const imageRecognitionPrompt = [
-    "Identify the main subject in the image.",
-    "If it is a well-known landmark, building, site, or monument, return its most common proper name.",
-    "If it is not confidently recognizable as a specific place, return a short descriptive label based on visible evidence, such as baroque castle, gothic church, stone bridge, seaside monument, or historic building.",
-    "If optional latitude/longitude makes the broader area clear, you may add a short location detail such as church in Valencia, castle near Sintra, or beach in Barcelona.",
-    "Use attached latitude/longitude only as supporting context to disambiguate visually plausible nearby places, never as the sole reason to guess.",
-    "Prefer visual facts first, then add style, type, or broad location only when they are plausible and useful.",
-    "Do not invent names or guess specific landmarks with low confidence.",
-    "Return only one short answer and nothing else.",
-    "Prefer the shortest commonly used name.",
-    "Do not exceed 40 characters.",
-];
+export const imageRecognitionPrompt = `
+    Identify the main object in the image.
+    If it is a well-known landmark, building, site, or monument, return its most common and shortest name, example "Eiffel tower".
+    Use the following priority work order:
+    - Try to identify the object based on the provided image, return an answer only if you are 100% sure.
+    - Use the latitude/longitude coordinates provided with the request to get the rough address of the location. Search the internet for the object. Example: "Baroque churches near address XYZ"
+    - If you still can't recognise the object use more general description such as "Church in Valencia", "Castle near Sintra", or "Beach in Barcelona".
+    Do not invent names.
+    Return only the name, nothing else.`;
 
 export const buildLocationPrompt = (location) => {
     if (!location) {

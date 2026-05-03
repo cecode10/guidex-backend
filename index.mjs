@@ -7,3 +7,5 @@ export { imageAnnotation } from "./handlers/image-annotation.mjs";
 export { imageRecognition } from "./handlers/image-recognition.mjs";
 export { textToSpeechFn as textToSpeech } from "./handlers/text-to-speech.mjs";
 export { deleteAccount } from "./handlers/delete-account.mjs";
+export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
+

@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is logged in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Anyone logged in can read user profiles (needed for search and feed)
+      allow read: if isSignedIn();
+      // Users can only update their own profile/settings
+      allow write: if isSignedIn() && request.auth.uid == userId;
+      
+      // Friends Subcollection
+      match /friends/{friendId} {
+        // Anyone logged in can see who someone follows
+        allow read: if isSignedIn();
+        // Users can only modify their own friends list
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // Posts Collection
+    match /posts/{postId} {
+      // Anyone logged in can read the feed
+      allow read: if isSignedIn();
+      // Anyone logged in can create a post
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      // Only the author can delete their post
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      // Updates are generally restricted, except for incrementing like counts (handled via transactions)
+      allow update: if isSignedIn(); 
+      
+      // Likes Subcollection
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        // Users can only add/remove their own likes
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // Customer Feedback Collection
+    match /customer-feedback/{feedbackId} {
+      // Anyone logged in can submit feedback
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      
+      // No one can read, update, or delete feedback from the client app
+      allow read, update, delete: if false;
+    }
+  }
+}
