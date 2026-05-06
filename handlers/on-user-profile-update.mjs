@@ -1,16 +1,16 @@
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 
-/** Named Firestore DB for users, friends, posts (see firebase.json → firestore). */
-const SOCIAL_FIRESTORE_ID = "social-network";
-
 /**
  * Cloud Function to handle "Data Fan-out".
  * When a user updates their profile (username, displayName, photoUrl, photoURL),
  * we need to denormalize this data by updating all of their past posts.
  */
 export const onUserProfileUpdate = onDocumentUpdated(
-    { document: "users/{uid}", database: SOCIAL_FIRESTORE_ID },
+    {
+        document: "users/{uid}",
+        region: "europe-west3",
+    },
     async (event) => {
         const oldData = event.data.before.data() || {};
         const newData = event.data.after.data() || {};
@@ -28,7 +28,7 @@ export const onUserProfileUpdate = onDocumentUpdated(
         const newName = newData.username || newData.displayName || uid;
         const newAvatar = newData.photoUrl || newData.photoURL || null;
 
-        const db = getFirestore(SOCIAL_FIRESTORE_ID);
+        const db = getFirestore();
 
         // Query all posts by this author
         const postsRef = db.collection("posts").where("authorId", "==", uid);

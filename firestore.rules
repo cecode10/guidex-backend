@@ -23,6 +23,12 @@ service cloud.firestore {
       }
     }
 
+    // Collection-group queries on any `friends` subcollection
+    // (e.g. followers lookup via collectionGroup('friends')).
+    match /{document=**}/friends/{friendDocId} {
+      allow read: if isSignedIn();
+    }
+
     // Posts Collection
     match /posts/{postId} {
       // Anyone logged in can read the feed
