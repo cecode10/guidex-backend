@@ -7,6 +7,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Who may follow this user (mirrors app `ProfilePrivacyService`).
+    function effectiveWhoCanFollowMe(data) {
+      let raw = data == null ? 'everyone' : (
+        (data.settings is map
+            && 'whoCanFollowMe' in data.settings
+            && data.settings.whoCanFollowMe is string)
+          ? data.settings.whoCanFollowMe
+          : (data.keys().hasAny(['whoCanFollowMe']) && data.whoCanFollowMe is string
+              ? data.whoCanFollowMe
+              : 'everyone')
+      );
+      return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
+    }
+
+    // [followerId] adds users/{followerId}/friends/{targetId}; target must allow it.
+    function followCreateAllowed(targetUserData, followerId, targetId) {
+      let policy = effectiveWhoCanFollowMe(targetUserData);
+      return policy == 'everyone'
+        || (policy == 'people_i_follow'
+            && exists(/databases/$(database)/documents/users/$(targetId)/friends/$(followerId)));
+    }
+
     // Users Collection
     match /users/{userId} {
       // Anyone logged in can read user profiles (needed for search and feed)
@@ -18,8 +40,15 @@ service cloud.firestore {
       match /friends/{friendId} {
         // Anyone logged in can see who someone follows
         allow read: if isSignedIn();
-        // Users can only modify their own friends list
-        allow write: if isSignedIn() && request.auth.uid == userId;
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+        allow update: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && followCreateAllowed(
+            get(/databases/$(database)/documents/users/$(friendId)).data,
+            userId,
+            friendId
+          );
       }
     }
 
