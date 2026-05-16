@@ -13,6 +13,7 @@ const model41 = "gpt-4.1-mini";
 const model40tts = "gpt-4o-mini-tts";
 const model5nano = "gpt-5-nano";
 const model5mini = "gpt-5-mini";
+const model54mini = "gpt-5.4-mini";
 
 const normalizeOpenAiError = (error) => {
     if (!error || typeof error !== "object") {
@@ -39,7 +40,7 @@ export const analyzeImage = async (image, prompt) => {
         throw new Error("prompt is required");
     }
 
-    const model = model41;
+    const model = model54mini;
     console.log("finalPrompt = " + finalPrompt);
     console.log("using model = " + model);
     const payload = {
