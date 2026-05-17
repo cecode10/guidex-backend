@@ -40,7 +40,7 @@ export const analyzeImage = async (image, prompt) => {
         throw new Error("prompt is required");
     }
 
-    const model = model54mini;
+    const model = model41;
     console.log("finalPrompt = " + finalPrompt);
     console.log("using model = " + model);
     const payload = {
