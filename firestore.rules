@@ -58,13 +58,25 @@ service cloud.firestore {
           && request.auth.uid == userId
           && request.resource.data.userId == userId;
         allow delete: if isSignedIn() && request.auth.uid == userId;
-        allow update: if false;
+        // Signed-in users may update likeCount via like transactions.
+        allow update: if isSignedIn();
+
+        match /likes/{likerId} {
+          allow read: if isSignedIn();
+          allow write: if isSignedIn() && request.auth.uid == likerId;
+        }
       }
     }
 
     // Collection-group queries on any `friends` subcollection
     // (e.g. followers lookup via collectionGroup('friends')).
     match /{document=**}/friends/{friendDocId} {
+      allow read: if isSignedIn();
+    }
+
+    // Collection-group queries on any `likes` subcollection
+    // (e.g. CheckmarksService.ensureLikesBound() via collectionGroup('likes')).
+    match /{document=**}/likes/{likeDocId} {
       allow read: if isSignedIn();
     }
 
