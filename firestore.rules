@@ -50,6 +50,16 @@ service cloud.firestore {
             friendId
           );
       }
+
+      // Checkmarks check-ins
+      match /checkins/{checkInId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.userId == userId;
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+        allow update: if false;
+      }
     }
 
     // Collection-group queries on any `friends` subcollection
