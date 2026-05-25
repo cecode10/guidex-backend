@@ -51,6 +51,18 @@ service cloud.firestore {
           );
       }
 
+      // Explore bookmarks
+      match /bookmarks/{bookmarkId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Curated trips built from saved places
+      match /trips/{tripId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+
       // Checkmarks check-ins
       match /checkins/{checkInId} {
         allow read: if isSignedIn();
