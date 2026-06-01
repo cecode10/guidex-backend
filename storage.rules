@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// Cloud Storage security rules.
+//
+// Client uploads only ever target `users/{uid}/...` (check-in photos, post
+// images, avatars). The `place-images/**` tree is the shared place-image
+// cache written exclusively by the `resolvePlaceImage` Cloud Function via the
+// Admin SDK, which bypasses these rules — so clients get read-only access.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Per-user uploads: a user may write only under their own prefix; any
+    // signed-in user may read (feed/profile imagery is shared).
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Shared place-image cache. Backend-written only (Admin SDK).
+    match /place-images/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

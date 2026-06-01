@@ -111,6 +111,14 @@ service cloud.firestore {
       }
     }
 
+    // Shared place-image cache. Written exclusively by the
+    // `resolvePlaceImage` Cloud Function (Admin SDK bypasses these rules);
+    // clients may only read the resolved cover/metadata.
+    match /placeImages/{placeKey} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // Customer Feedback Collection
     match /customer-feedback/{feedbackId} {
       // Anyone logged in can submit feedback

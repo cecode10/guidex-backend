@@ -8,4 +8,5 @@ export { imageRecognition } from "./handlers/image-recognition.mjs";
 export { textToSpeechFn as textToSpeech } from "./handlers/text-to-speech.mjs";
 export { deleteAccount } from "./handlers/delete-account.mjs";
 export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
+export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
 
