@@ -14,7 +14,7 @@ const HARD_NEGATIVE_TTL_DAYS = 30;
 const COVER_WIDTH = 1600;
 /** Upstream request timeout (Wikimedia/Wikidata can be slow under load). */
 const UPSTREAM_TIMEOUT_MS = 12000;
-/** Total attempts for retryable upstream failures (timeout / 5xx). */
+/** Total attempts for retryable upstream failures (timeout / 5xx / 429). */
 const UPSTREAM_MAX_ATTEMPTS = 3;
 
 const WIKI_HEADERS = {
@@ -76,17 +76,41 @@ export const normalizeWikiImageUrl = (raw, width) => {
     return uri.toString();
 };
 
+/** Exponential backoff (ms) for retry [attempt] (0-based). */
+const backoffMs = (attempt) => 400 * 2 ** attempt;
+
+/** Cap on how long we'll wait for a `Retry-After` before giving up a slot. */
+const MAX_RETRY_AFTER_MS = 5000;
+
+/** Parses a `Retry-After` header (seconds or HTTP-date) into ms, or null. */
+const retryAfterMs = (res) => {
+    const raw = res?.headers?.get?.("retry-after");
+    if (!raw) return null;
+    const secs = Number.parseInt(raw, 10);
+    if (Number.isFinite(secs)) return Math.min(secs * 1000, MAX_RETRY_AFTER_MS);
+    const when = Date.parse(raw);
+    if (Number.isFinite(when)) {
+        return Math.min(Math.max(when - Date.now(), 0), MAX_RETRY_AFTER_MS);
+    }
+    return null;
+};
+
 /**
  * HTTP GET with the project's retry policy:
  * - timeout / 5xx: retried up to [UPSTREAM_MAX_ATTEMPTS] total, then transient.
- * - 429: fail fast as transient (never retried, never cached).
+ * - 429: retried with backoff (honouring `Retry-After`) then transient. We
+ *   retry rather than fail fast because Wikimedia's per-IP limit is hit
+ *   precisely because every client funnels through this function — and a
+ *   single successful fetch caches the image for everyone, after which the
+ *   upstream is never touched again for that place.
  * - everything else (2xx, 404, ...): returned to the caller as-is.
  */
 export const httpGet = async (url, { fetchImpl = fetch, headers } = {}) => {
     let lastError;
+    let delay = 0;
     for (let attempt = 0; attempt < UPSTREAM_MAX_ATTEMPTS; attempt++) {
-        if (attempt > 0) {
-            await new Promise((r) => setTimeout(r, 400 * 2 ** (attempt - 1)));
+        if (delay > 0) {
+            await new Promise((r) => setTimeout(r, delay));
         }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -96,10 +120,13 @@ export const httpGet = async (url, { fetchImpl = fetch, headers } = {}) => {
                 signal: controller.signal,
             });
             if (res.status === 429) {
-                throw new TransientUpstreamError(`429 from ${url}`);
+                lastError = new TransientUpstreamError(`429 from ${url}`);
+                delay = retryAfterMs(res) ?? backoffMs(attempt);
+                continue;
             }
             if (res.status >= 500) {
                 lastError = new TransientUpstreamError(`${res.status} from ${url}`);
+                delay = backoffMs(attempt);
                 continue;
             }
             return res;
@@ -107,6 +134,7 @@ export const httpGet = async (url, { fetchImpl = fetch, headers } = {}) => {
             if (err instanceof TransientUpstreamError) throw err;
             // AbortError / network error → retryable.
             lastError = new TransientUpstreamError(err?.message || "network error");
+            delay = backoffMs(attempt);
         } finally {
             clearTimeout(timer);
         }
@@ -130,8 +158,8 @@ const resolveWikipediaTitle = async (wikidataId, fetchImpl) => {
     return entity?.sitelinks?.enwiki?.title || null;
 };
 
-/** Wikidata `P18` image filename → Commons file URL, or null. */
-const resolveWikidataImage = async (wikidataId, fetchImpl) => {
+/** Wikidata `P18` raw Commons file name (e.g. `Eiffel Tower.jpg`), or null. */
+const resolveWikidataImageFile = async (wikidataId, fetchImpl) => {
     const url =
         `https://www.wikidata.org/w/api.php?action=wbgetentities` +
         `&props=claims&ids=${encodeURIComponent(wikidataId)}` +
@@ -140,11 +168,54 @@ const resolveWikidataImage = async (wikidataId, fetchImpl) => {
     if (!res.ok) return null;
     const body = await res.json();
     const claims = body?.entities?.[wikidataId]?.claims?.P18;
-    const file = claims?.[0]?.mainsnak?.datavalue?.value;
-    if (!file) return null;
-    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
-        file,
-    )}`;
+    return claims?.[0]?.mainsnak?.datavalue?.value || null;
+};
+
+/**
+ * Extracts the Commons file name from a `Special:FilePath/<File>` URL, or null
+ * when [raw] is not such a URL.
+ */
+export const commonsFileFromFilePath = (raw) => {
+    if (!raw) return null;
+    let uri;
+    try {
+        uri = new URL(raw);
+    } catch {
+        return null;
+    }
+    const marker = "/Special:FilePath/";
+    const idx = uri.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    const enc = uri.pathname.slice(idx + marker.length);
+    try {
+        return decodeURIComponent(enc);
+    } catch {
+        return enc;
+    }
+};
+
+/**
+ * Resolves a Commons file name to a direct `upload.wikimedia.org` thumbnail
+ * URL via the `imageinfo` API. This CDN path has far higher rate limits than
+ * `Special:FilePath` (which redirects and is aggressively throttled per-IP —
+ * exactly the path that 429s when every client funnels through this function).
+ */
+const resolveCommonsThumbUrl = async (fileName, width, fetchImpl) => {
+    const title = `File:${fileName}`;
+    const url =
+        `https://commons.wikimedia.org/w/api.php?action=query` +
+        `&titles=${encodeURIComponent(title)}` +
+        `&prop=imageinfo&iiprop=url&iiurlwidth=${width}` +
+        `&format=json&origin=*`;
+    const res = await httpGet(url, { fetchImpl, headers: WIKI_HEADERS });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const pages = body?.query?.pages;
+    if (!pages) return null;
+    const page = Object.values(pages)[0];
+    const info = page?.imageinfo?.[0];
+    // `thumburl` is the resized CDN URL; fall back to the original `url`.
+    return info?.thumburl || info?.url || null;
 };
 
 /** Wikipedia REST summary thumbnail for a page title, or null. */
@@ -173,6 +244,16 @@ export const resolveImageCandidate = async ({
     fetchImpl = fetch,
 }) => {
     if (hintImageUrl && /^https?:\/\//i.test(hintImageUrl)) {
+        // Hints are typically Wikidata P18 `Special:FilePath` URLs. Resolve the
+        // underlying file to a CDN thumbnail instead of hitting FilePath.
+        const file = commonsFileFromFilePath(hintImageUrl);
+        if (file) {
+            const thumb = await resolveCommonsThumbUrl(file, COVER_WIDTH, fetchImpl);
+            if (thumb) {
+                return { url: thumb, source: "wikidata", sourceUrl: hintImageUrl };
+            }
+        }
+        // Already a direct (non-FilePath) URL — use it as-is.
         return {
             url: normalizeWikiImageUrl(hintImageUrl, COVER_WIDTH),
             source: "wikidata",
@@ -182,13 +263,18 @@ export const resolveImageCandidate = async ({
 
     const qid = String(wikidataId || "").trim();
     if (/^Q\d+$/.test(qid)) {
-        const p18 = await resolveWikidataImage(qid, fetchImpl);
-        if (p18) {
-            return {
-                url: normalizeWikiImageUrl(p18, COVER_WIDTH),
-                source: "wikidata",
-                sourceUrl: p18,
-            };
+        const file = await resolveWikidataImageFile(qid, fetchImpl);
+        if (file) {
+            const thumb = await resolveCommonsThumbUrl(file, COVER_WIDTH, fetchImpl);
+            if (thumb) {
+                return {
+                    url: thumb,
+                    source: "wikidata",
+                    sourceUrl:
+                        `https://commons.wikimedia.org/wiki/Special:FilePath/` +
+                        encodeURIComponent(file),
+                };
+            }
         }
         const title = await resolveWikipediaTitle(qid, fetchImpl);
         if (title) {
