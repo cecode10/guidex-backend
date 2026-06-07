@@ -195,17 +195,87 @@ export const commonsFileFromFilePath = (raw) => {
 };
 
 /**
- * Resolves a Commons file name to a direct `upload.wikimedia.org` thumbnail
- * URL via the `imageinfo` API. This CDN path has far higher rate limits than
- * `Special:FilePath` (which redirects and is aggressively throttled per-IP —
- * exactly the path that 429s when every client funnels through this function).
+ * Extracts a Commons file name from an `upload.wikimedia.org` thumbnail or
+ * direct file URL, or null when [raw] is not such a URL.
  */
-const resolveCommonsThumbUrl = async (fileName, width, fetchImpl) => {
+export const commonsFileFromUploadUrl = (raw) => {
+    if (!raw) return null;
+    let uri;
+    try {
+        uri = new URL(raw);
+    } catch {
+        return null;
+    }
+    const path = uri.pathname;
+    const thumb = path.match(/\/([^/]+\.[a-zA-Z0-9]+)\/\d+px-/);
+    if (thumb) {
+        try {
+            return decodeURIComponent(thumb[1]);
+        } catch {
+            return thumb[1];
+        }
+    }
+    if (!path.includes("/wikipedia/commons/")) return null;
+    const direct = path.match(/\/([^/]+\.[a-zA-Z0-9]+)$/);
+    if (!direct) return null;
+    try {
+        return decodeURIComponent(direct[1]);
+    } catch {
+        return direct[1];
+    }
+};
+
+/** Strips HTML from Commons `extmetadata` values (Artist, etc.). */
+export const stripHtml = (raw) => {
+    if (!raw) return null;
+    const text = String(raw)
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+    return text || null;
+};
+
+const commonsFilePageUrl = (fileName) =>
+    `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(fileName)}`;
+
+const extMetaValue = (ext, key) => stripHtml(ext?.[key]?.value);
+
+const normalizeAttribution = (attribution, sourceUrl) => ({
+    author: attribution?.author ?? null,
+    license: attribution?.license ?? null,
+    licenseUrl: attribution?.licenseUrl ?? null,
+    filePageUrl: attribution?.filePageUrl ?? sourceUrl ?? null,
+    sourceUrl: sourceUrl ?? null,
+});
+
+const buildCandidate = ({ url, source, sourceUrl, attribution }) => ({
+    url,
+    source,
+    sourceUrl,
+    attribution: normalizeAttribution(attribution, sourceUrl),
+});
+
+/**
+ * Resolves a Commons file name to a direct `upload.wikimedia.org` thumbnail
+ * URL and licensing metadata via the `imageinfo` API. This CDN path has far
+ * higher rate limits than `Special:FilePath` (which redirects and is
+ * aggressively throttled per-IP — exactly the path that 429s when every client
+ * funnels through this function).
+ */
+const resolveCommonsImage = async (fileName, width, fetchImpl) => {
     const title = `File:${fileName}`;
     const url =
         `https://commons.wikimedia.org/w/api.php?action=query` +
         `&titles=${encodeURIComponent(title)}` +
-        `&prop=imageinfo&iiprop=url&iiurlwidth=${width}` +
+        `&prop=imageinfo` +
+        `&iiprop=url|extmetadata` +
+        `&iiextmetadatafilter=Artist|LicenseShortName|LicenseUrl` +
+        `&iiurlwidth=${width}` +
         `&format=json&origin=*`;
     const res = await httpGet(url, { fetchImpl, headers: WIKI_HEADERS });
     if (!res.ok) return null;
@@ -214,8 +284,40 @@ const resolveCommonsThumbUrl = async (fileName, width, fetchImpl) => {
     if (!pages) return null;
     const page = Object.values(pages)[0];
     const info = page?.imageinfo?.[0];
-    // `thumburl` is the resized CDN URL; fall back to the original `url`.
-    return info?.thumburl || info?.url || null;
+    const thumbUrl = info?.thumburl || info?.url || null;
+    if (!thumbUrl) return null;
+    const ext = info?.extmetadata ?? {};
+    return {
+        url: thumbUrl,
+        attribution: {
+            author: extMetaValue(ext, "Artist"),
+            license: extMetaValue(ext, "LicenseShortName"),
+            licenseUrl: extMetaValue(ext, "LicenseUrl"),
+            filePageUrl: commonsFilePageUrl(fileName),
+        },
+    };
+};
+
+/** Best-effort Commons metadata for a CDN thumbnail URL. */
+const enrichFromUploadUrl = async (rawUrl, source, sourceUrl, fetchImpl) => {
+    const file = commonsFileFromUploadUrl(rawUrl);
+    if (file) {
+        const commons = await resolveCommonsImage(file, COVER_WIDTH, fetchImpl);
+        if (commons) {
+            return buildCandidate({
+                url: commons.url,
+                source,
+                sourceUrl,
+                attribution: commons.attribution,
+            });
+        }
+    }
+    return buildCandidate({
+        url: normalizeWikiImageUrl(rawUrl, COVER_WIDTH),
+        source,
+        sourceUrl,
+        attribution: { filePageUrl: sourceUrl },
+    });
 };
 
 /** Wikipedia REST summary thumbnail for a page title, or null. */
@@ -233,9 +335,9 @@ const resolveWikipediaThumb = async (title, fetchImpl) => {
 
 /**
  * Runs the Wikidata→Wikipedia cascade and returns a candidate
- * `{ url, source, sourceUrl }`, or null when no image exists anywhere.
- * Throws [TransientUpstreamError] when a lookup fails in a way that must not
- * be cached as a hard negative.
+ * `{ url, source, sourceUrl, attribution }`, or null when no image exists
+ * anywhere. Throws [TransientUpstreamError] when a lookup fails in a way that
+ * must not be cached as a hard negative.
  */
 export const resolveImageCandidate = async ({
     wikidataId,
@@ -248,43 +350,42 @@ export const resolveImageCandidate = async ({
         // underlying file to a CDN thumbnail instead of hitting FilePath.
         const file = commonsFileFromFilePath(hintImageUrl);
         if (file) {
-            const thumb = await resolveCommonsThumbUrl(file, COVER_WIDTH, fetchImpl);
-            if (thumb) {
-                return { url: thumb, source: "wikidata", sourceUrl: hintImageUrl };
+            const commons = await resolveCommonsImage(file, COVER_WIDTH, fetchImpl);
+            if (commons) {
+                return buildCandidate({
+                    url: commons.url,
+                    source: "wikidata",
+                    sourceUrl: hintImageUrl,
+                    attribution: commons.attribution,
+                });
             }
         }
-        // Already a direct (non-FilePath) URL — use it as-is.
-        return {
-            url: normalizeWikiImageUrl(hintImageUrl, COVER_WIDTH),
-            source: "wikidata",
-            sourceUrl: hintImageUrl,
-        };
+        return enrichFromUploadUrl(hintImageUrl, "wikidata", hintImageUrl, fetchImpl);
     }
 
     const qid = String(wikidataId || "").trim();
     if (/^Q\d+$/.test(qid)) {
         const file = await resolveWikidataImageFile(qid, fetchImpl);
         if (file) {
-            const thumb = await resolveCommonsThumbUrl(file, COVER_WIDTH, fetchImpl);
-            if (thumb) {
-                return {
-                    url: thumb,
+            const sourceUrl =
+                `https://commons.wikimedia.org/wiki/Special:FilePath/` +
+                encodeURIComponent(file);
+            const commons = await resolveCommonsImage(file, COVER_WIDTH, fetchImpl);
+            if (commons) {
+                return buildCandidate({
+                    url: commons.url,
                     source: "wikidata",
-                    sourceUrl:
-                        `https://commons.wikimedia.org/wiki/Special:FilePath/` +
-                        encodeURIComponent(file),
-                };
+                    sourceUrl,
+                    attribution: commons.attribution,
+                });
             }
         }
         const title = await resolveWikipediaTitle(qid, fetchImpl);
         if (title) {
             const thumb = await resolveWikipediaThumb(title, fetchImpl);
             if (thumb) {
-                return {
-                    url: normalizeWikiImageUrl(thumb, COVER_WIDTH),
-                    source: "wikipedia",
-                    sourceUrl: `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`,
-                };
+                const sourceUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+                return enrichFromUploadUrl(thumb, "wikipedia", sourceUrl, fetchImpl);
             }
         }
     }
@@ -292,11 +393,8 @@ export const resolveImageCandidate = async ({
     if (name) {
         const thumb = await resolveWikipediaThumb(name, fetchImpl);
         if (thumb) {
-            return {
-                url: normalizeWikiImageUrl(thumb, COVER_WIDTH),
-                source: "wikipedia",
-                sourceUrl: `https://en.wikipedia.org/wiki/${encodeURIComponent(name)}`,
-            };
+            const sourceUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(name)}`;
+            return enrichFromUploadUrl(thumb, "wikipedia", sourceUrl, fetchImpl);
         }
     }
 
@@ -344,9 +442,12 @@ export const resolvePlaceImage = onRequest(
             if (existing.exists) {
                 const data = existing.data();
                 if (data.status === "ready" && data.storageUrl) {
-                    return res
-                        .status(200)
-                        .json({ status: "ready", source: data.source, storageUrl: data.storageUrl });
+                    return res.status(200).json({
+                        status: "ready",
+                        source: data.source,
+                        storageUrl: data.storageUrl,
+                        attribution: data.attribution ?? null,
+                    });
                 }
                 if (data.status === "notFound" && isFreshNegative(data, now)) {
                     return res.status(200).json({
@@ -425,8 +526,10 @@ export const resolvePlaceImage = onRequest(
                 `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
                 `/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
 
+            const attribution = candidate.attribution ?? normalizeAttribution(null, candidate.sourceUrl);
+
             await docRef.set({
-                schemaVersion: 1,
+                schemaVersion: 2,
                 placeKey,
                 wikidataId: wikidataId || null,
                 status: "ready",
@@ -434,16 +537,19 @@ export const resolvePlaceImage = onRequest(
                 storageUrl,
                 storagePath,
                 mime,
-                attribution: { sourceUrl: candidate.sourceUrl || null },
+                attribution,
                 officialExpiresAt: null,
                 resolvedAt: FieldValue.serverTimestamp(),
             });
 
             const elapsed = Date.now() - start;
             console.log(`[${FUNCTION_NAME}] resolved ${placeKey} (${candidate.source}) in ${elapsed}ms`);
-            return res
-                .status(200)
-                .json({ status: "ready", source: candidate.source, storageUrl });
+            return res.status(200).json({
+                status: "ready",
+                source: candidate.source,
+                storageUrl,
+                attribution,
+            });
         } catch (error) {
             const elapsed = Date.now() - start;
             if (error instanceof TransientUpstreamError) {
