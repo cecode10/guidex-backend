@@ -74,6 +74,14 @@ export const analyzeImage = async (image, prompt) => {
     }
 }
 
+const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => ({
+    model: model4o,
+    instructions: systemPrompt,
+    input: userPrompt,
+    tools: [{ type: "web_search" }],
+    ...options,
+});
+
 export const answerToPrompt = async (systemPrompt, userPrompt) => {
     if (!systemPrompt?.trim()) {
         throw new Error("system prompt is required");
@@ -81,38 +89,17 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
-    const model = model4o;
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model = " + model);
+    console.log("using model = " + model4o);
     try {
         const start = Date.now();
-        const response = await getClient().chat.completions.create({
-            model: model,
-            messages: [
-                {
-                    role: "system",
-                    content: [
-                        {
-                            type: "text",
-                            text: systemPrompt
-                        }
-                    ]
-                },
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: userPrompt
-                        }
-                    ]
-                }
-            ]
-        });
+        const response = await getClient().responses.create(
+            buildTextPromptPayload(systemPrompt, userPrompt),
+        );
         const elapsed = Date.now() - start;
         console.log(`[answerToPrompt] OpenAI API responded in ${elapsed}ms`);
-        return response.choices[0].message.content;
+        return response.output_text;
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
@@ -125,29 +112,18 @@ export const answerToPromptStreaming = async function* (systemPrompt, userPrompt
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
-    const model = model4o;
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model (streaming) = " + model);
+    console.log("using model (streaming) = " + model4o);
     try {
         const start = Date.now();
-        const stream = await getClient().chat.completions.create({
-            model: model,
-            stream: true,
-            messages: [
-                {
-                    role: "system",
-                    content: [{ type: "text", text: systemPrompt }],
-                },
-                {
-                    role: "user",
-                    content: [{ type: "text", text: userPrompt }],
-                },
-            ],
-        });
-        for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta?.content;
-            if (delta) yield delta;
+        const stream = await getClient().responses.create(
+            buildTextPromptPayload(systemPrompt, userPrompt, { stream: true }),
+        );
+        for await (const event of stream) {
+            if (event.type === "response.output_text.delta" && event.delta) {
+                yield event.delta;
+            }
         }
         const elapsed = Date.now() - start;
         console.log(`[answerToPromptStreaming] OpenAI stream completed in ${elapsed}ms`);

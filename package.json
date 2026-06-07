@@ -8,7 +8,7 @@
         "node": "22"
     },
     "scripts": {
-        "deploy": "firebase deploy --only functions",
+        "deploy:functions": "firebase deploy --only functions",
         "deploy:textPrompt": "firebase deploy --only functions:textPrompt",
         "deploy:imageAnnotation": "firebase deploy --only functions:imageAnnotation",
         "deploy:imageRecognition": "firebase deploy --only functions:imageRecognition",
