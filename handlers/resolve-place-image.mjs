@@ -6,7 +6,7 @@ import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
 
 const FUNCTION_NAME = "resolvePlaceImage";
-const COLLECTION = "placeImages";
+const COLLECTION = "place-images";
 
 /** Days a genuine "no image" result is trusted before the cascade re-runs. */
 const HARD_NEGATIVE_TTL_DAYS = 30;
@@ -412,7 +412,7 @@ const isFreshNegative = (data, now) => {
 /**
  * Cloud Function: resolves (and caches) the cover image for a place.
  *
- * The client reads `placeImages/{placeKey}` directly and only calls this on a
+ * The client reads `place-images/{placeKey}` directly and only calls this on a
  * miss or an expired negative. The function runs the Wikidata→Wikipedia
  * cascade, copies the winning image into our own Storage bucket, and persists
  * a cache document. Genuine misses are cached as 30-day hard negatives;
