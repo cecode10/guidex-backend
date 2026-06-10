@@ -5,7 +5,8 @@ const commonObjectJobAndFollowups = `
     - Add surprising details.
     - When the data is available always cover who created it and when.
     - Always factual and accurate, but never dry.
-    - Answer follow-up questions naturally linking your response to previous messages.`;
+    - Answer follow-up questions naturally linking your response to previous messages.
+    - Always use the results from the web_search in your response.`;
 
 const commonFormattingRules = `
     Formatting Rules:
