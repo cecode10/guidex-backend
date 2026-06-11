@@ -2,6 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
 
@@ -11,7 +12,8 @@ const COLLECTION = "place-images";
 /** Days a genuine "no image" result is trusted before the cascade re-runs. */
 const HARD_NEGATIVE_TTL_DAYS = 30;
 /** Server-resized thumbnail width we persist as the place cover. */
-const COVER_WIDTH = 1600;
+const COVER_WIDTH = 1200;
+const COVER_WEBP_QUALITY = 80;
 /** Upstream request timeout (Wikimedia/Wikidata can be slow under load). */
 const UPSTREAM_TIMEOUT_MS = 12000;
 /** Total attempts for retryable upstream failures (timeout / 5xx / 429). */
@@ -508,13 +510,20 @@ export const resolvePlaceImage = onRequest(
                 });
             }
 
-            const mime = imgRes.headers.get("content-type") || "image/jpeg";
             const bytes = Buffer.from(await imgRes.arrayBuffer());
+            const webpBytes = await sharp(bytes)
+                .resize(COVER_WIDTH, COVER_WIDTH, {
+                    fit: "inside",
+                    withoutEnlargement: true,
+                })
+                .webp({ quality: COVER_WEBP_QUALITY })
+                .toBuffer();
 
             const bucket = getStorage().bucket();
-            const storagePath = `place-images/${placeKey}/cover.jpg`;
+            const storagePath = `place-images/${placeKey}/cover.webp`;
             const token = randomUUID();
-            await bucket.file(storagePath).save(bytes, {
+            const mime = "image/webp";
+            await bucket.file(storagePath).save(webpBytes, {
                 resumable: false,
                 contentType: mime,
                 metadata: {

@@ -21,7 +21,9 @@
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "migrate:images": "node scripts/migrate-images-to-webp.mjs",
+        "migrate:images:dry-run": "node scripts/migrate-images-to-webp.mjs --dry-run"
     },
     "devDependencies": {
         "@eslint/js": "^9.21.0",
@@ -32,6 +34,7 @@
     "dependencies": {
         "firebase-admin": "^13.0.0",
         "firebase-functions": "^7.1.1",
-        "openai": "^6.17.0"
+        "openai": "^6.17.0",
+        "sharp": "^0.34.5"
     }
 }
