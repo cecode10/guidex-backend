@@ -35,6 +35,17 @@ export const textToSpeechFn = onRequest({ cors: true, region: "europe-west3", se
         const inputText = body.text.trim();
         const persona = body.persona.trim();
         const gender = body.gender.trim();
+        const chapterIndex = Number(body.chapterIndex);
+        const totalChapters = Number(body.totalChapters);
+        if (
+            Number.isInteger(chapterIndex) &&
+            Number.isInteger(totalChapters) &&
+            totalChapters > 0 &&
+            chapterIndex >= 0 &&
+            chapterIndex < totalChapters
+        ) {
+            console.log(`[${FUNCTION_NAME}] chapter ${chapterIndex + 1}/${totalChapters}`);
+        }
         let voice = GENDER_TO_VOICE[gender.toLowerCase()] ?? VOICE_ALLOY;
         if (personas.cat === persona.toLowerCase()) {
             voice = VOICE_FABLE;
