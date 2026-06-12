@@ -21,9 +21,7 @@
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",
         "test": "vitest run",
-        "test:watch": "vitest",
-        "migrate:images": "node scripts/migrate-images-to-webp.mjs",
-        "migrate:images:dry-run": "node scripts/migrate-images-to-webp.mjs --dry-run"
+        "test:watch": "vitest"
     },
     "devDependencies": {
         "@eslint/js": "^9.21.0",
