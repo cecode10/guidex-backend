@@ -7,8 +7,7 @@ import {
     COLLECTION,
     deriveRadiusKm,
     geocodingLanguageFromAppLanguage,
-    isReadyAnchorDoc,
-    normalizeGeocodeKey,
+    geocodeAnchorCacheKey,
 } from "../geocode-anchor-utils.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
@@ -90,9 +89,9 @@ export const resolveSearchAnchor = onRequest(
                 throw err;
             }
 
-            const key = normalizeGeocodeKey(rawQuery);
+            const key = geocodeAnchorCacheKey(rawQuery);
             if (!key) {
-                const err = new Error("query is empty after normalization");
+                const err = new Error("query is empty");
                 err.statusCode = 400;
                 throw err;
             }
