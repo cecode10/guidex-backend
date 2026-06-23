@@ -22,7 +22,11 @@ export const deleteAccount = onRequest({ cors: true, region: "europe-west3" }, a
 
         const result = await deleteFirebaseUser(payload.uid);
         const elapsed = Date.now() - start;
-        console.log(`[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200`);
+        console.log(
+            `[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200 followingRemoved=%d followersRemoved=%d`,
+            result.followingRemoved ?? 0,
+            result.followersRemoved ?? 0,
+        );
         res.json(result);
     } catch (error) {
         console.error("delete-account error:", error?.message || error);
