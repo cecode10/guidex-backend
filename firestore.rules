@@ -126,6 +126,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Shared geo-location cache for nearby popular places. Written exclusively
+    // by `resolveGeoLocationPopular`; clients may only read.
+    match /geo-location/{locationKey} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      match /popularAroundList/{placeId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
     // Customer Feedback Collection
     match /customer-feedback/{feedbackId} {
       // Anyone logged in can submit feedback

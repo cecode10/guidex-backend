@@ -9,6 +9,10 @@ import {
     geocodingLanguageFromAppLanguage,
     geocodeAnchorCacheKey,
 } from "../geocode-anchor-utils.mjs";
+import {
+    logExternalApiRequest,
+    logExternalApiResponse,
+} from "../external-api-debug.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveSearchAnchor";
@@ -31,13 +35,26 @@ export const fetchGoogleGeocode = async (address, language, apiKey) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
     try {
+        logExternalApiRequest(
+            "google-geocoding",
+            `forward-geocode query="${address}" language=${language}`,
+        );
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) {
+            logExternalApiResponse(
+                "google-geocoding",
+                `HTTP ${response.status} forward-geocode query="${address}"`,
+            );
             throw new Error(`Google Geocoding HTTP ${response.status}`);
         }
-        return /** @type {{ status: string, results?: Array<Record<string, unknown>> }} */ (
+        const body = /** @type {{ status: string, results?: Array<Record<string, unknown>> }} */ (
             await response.json()
         );
+        logExternalApiResponse(
+            "google-geocoding",
+            `status=${body.status} forward-geocode query="${address}"`,
+        );
+        return body;
     } finally {
         clearTimeout(timer);
     }

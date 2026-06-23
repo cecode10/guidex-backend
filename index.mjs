@@ -10,4 +10,5 @@ export { deleteAccount } from "./handlers/delete-account.mjs";
 export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
 export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
 export { resolveSearchAnchor } from "./handlers/resolve-search-anchor.mjs";
+export { resolveGeoLocationPopular } from "./handlers/resolve-geo-location-popular.mjs";
 

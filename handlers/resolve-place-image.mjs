@@ -5,6 +5,14 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
+import {
+    patchPopularPlaceImage,
+    resolveWikidataIdsForTitles,
+} from "../geo-location-utils.mjs";
+import {
+    logExternalApiRequestUrl,
+    logExternalApiResponseUrl,
+} from "../external-api-debug.mjs";
 
 const FUNCTION_NAME = "resolvePlaceImage";
 const COLLECTION = "place-images";
@@ -117,6 +125,9 @@ export const httpGet = async (url, { fetchImpl = fetch, headers } = {}) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
         try {
+            if (attempt === 0) {
+                logExternalApiRequestUrl(url, { attempt });
+            }
             const res = await fetchImpl(url, {
                 headers,
                 signal: controller.signal,
@@ -131,6 +142,7 @@ export const httpGet = async (url, { fetchImpl = fetch, headers } = {}) => {
                 delay = backoffMs(attempt);
                 continue;
             }
+            logExternalApiResponseUrl(url, res.status);
             return res;
         } catch (err) {
             if (err instanceof TransientUpstreamError) throw err;
@@ -412,6 +424,204 @@ const isFreshNegative = (data, now) => {
 };
 
 /**
+ * @param {string | null | undefined} wikidataId
+ * @param {string} name
+ * @param {typeof fetch} fetchImpl
+ * @returns {Promise<string | null>}
+ */
+const resolveAuthoritativeWikidataId = async (wikidataId, name, fetchImpl) => {
+    const qid = String(wikidataId || "").trim();
+    if (/^Q\d+$/.test(qid)) return qid;
+    if (!name.trim()) return null;
+    const map = await resolveWikidataIdsForTitles([name], fetchImpl);
+    return map.get(name.trim().toLowerCase()) ?? null;
+};
+
+/**
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {Record<string, unknown>} payload
+ * @param {{
+ *   wikidataId?: string | null,
+ *   storageUrl?: string | null,
+ *   imageStatus: "ready" | "notFound",
+ * }} patch
+ */
+const patchExplorePopularPlace = async (db, payload, patch) => {
+    const geoLocationKey = String(payload.geoLocationKey || "").trim();
+    const orderRaw = payload.popularPlaceOrder;
+    const popularPlaceOrder =
+        typeof orderRaw === "number"
+            ? orderRaw
+            : typeof orderRaw === "string"
+              ? Number.parseInt(orderRaw, 10)
+              : Number.NaN;
+    await patchPopularPlaceImage(db, {
+        geoLocationKey,
+        popularPlaceOrder,
+        wikidataId: patch.wikidataId ?? null,
+        storageUrl: patch.storageUrl ?? null,
+        imageStatus: patch.imageStatus,
+    });
+};
+
+/**
+ * Resolves a place cover image into `place-images/{placeKey}` when needed.
+ * Reuses an existing ready/fresh-negative cache entry without re-fetching upstream.
+ *
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {{
+ *   wikidataId?: string | null,
+ *   name: string,
+ *   hintImageUrl?: string | null,
+ * }} input
+ * @param {typeof fetch} [fetchImpl]
+ * @returns {Promise<{
+ *   wikidataId: string | null,
+ *   storageUrl?: string | null,
+ *   imageStatus: "ready" | "notFound",
+ *   source?: string | null,
+ *   attribution?: unknown,
+ *   officialExpiresAt?: import("firebase-admin/firestore").Timestamp,
+ * }>}
+ */
+export const ensurePlaceImageInFirestore = async (
+    db,
+    { wikidataId, name, hintImageUrl },
+    fetchImpl = fetch,
+) => {
+    const authoritativeWikidataId = await resolveAuthoritativeWikidataId(
+        wikidataId,
+        name,
+        fetchImpl,
+    );
+    const resolvedWikidataId = authoritativeWikidataId || wikidataId || null;
+    const placeKey = placeKeyFor(resolvedWikidataId, name);
+
+    const docRef = db.collection(COLLECTION).doc(placeKey);
+    const now = Date.now();
+
+    const existing = await docRef.get();
+    if (existing.exists) {
+        const data = existing.data();
+        if (data.status === "ready" && data.storageUrl) {
+            return {
+                wikidataId: data.wikidataId || resolvedWikidataId,
+                storageUrl: data.storageUrl,
+                imageStatus: "ready",
+                source: data.source ?? null,
+                attribution: data.attribution ?? null,
+            };
+        }
+        if (data.status === "notFound" && isFreshNegative(data, now)) {
+            return {
+                wikidataId: data.wikidataId || resolvedWikidataId,
+                imageStatus: "notFound",
+                officialExpiresAt: data.officialExpiresAt,
+            };
+        }
+    }
+
+    const candidate = await resolveImageCandidate({
+        wikidataId: resolvedWikidataId,
+        name,
+        hintImageUrl,
+        fetchImpl,
+    });
+
+    if (!candidate || !candidate.url) {
+        const expiresAt = Timestamp.fromMillis(
+            now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
+        );
+        await docRef.set({
+            schemaVersion: 1,
+            placeKey,
+            wikidataId: resolvedWikidataId,
+            status: "notFound",
+            source: null,
+            reason: "hard",
+            officialExpiresAt: expiresAt,
+            resolvedAt: FieldValue.serverTimestamp(),
+        });
+        return {
+            wikidataId: resolvedWikidataId,
+            imageStatus: "notFound",
+            officialExpiresAt: expiresAt,
+        };
+    }
+
+    const imgRes = await httpGet(candidate.url, { headers: WIKI_HEADERS, fetchImpl });
+    if (!imgRes.ok) {
+        const expiresAt = Timestamp.fromMillis(
+            now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
+        );
+        await docRef.set({
+            schemaVersion: 1,
+            placeKey,
+            wikidataId: resolvedWikidataId,
+            status: "notFound",
+            source: null,
+            reason: "hard",
+            officialExpiresAt: expiresAt,
+            resolvedAt: FieldValue.serverTimestamp(),
+        });
+        return {
+            wikidataId: resolvedWikidataId,
+            imageStatus: "notFound",
+            officialExpiresAt: expiresAt,
+        };
+    }
+
+    const bytes = Buffer.from(await imgRes.arrayBuffer());
+    const webpBytes = await sharp(bytes)
+        .resize(COVER_WIDTH, COVER_WIDTH, {
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .webp({ quality: COVER_WEBP_QUALITY })
+        .toBuffer();
+
+    const bucket = getStorage().bucket();
+    const storagePath = `place-images/${placeKey}/cover.webp`;
+    const token = randomUUID();
+    const mime = "image/webp";
+    await bucket.file(storagePath).save(webpBytes, {
+        resumable: false,
+        contentType: mime,
+        metadata: {
+            cacheControl: "public, max-age=604800",
+            metadata: { firebaseStorageDownloadTokens: token },
+        },
+    });
+    const storageUrl =
+        `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
+        `/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
+
+    const attribution = candidate.attribution ?? normalizeAttribution(null, candidate.sourceUrl);
+
+    await docRef.set({
+        schemaVersion: 2,
+        placeKey,
+        wikidataId: resolvedWikidataId,
+        status: "ready",
+        source: candidate.source,
+        storageUrl,
+        storagePath,
+        mime,
+        attribution,
+        officialExpiresAt: null,
+        resolvedAt: FieldValue.serverTimestamp(),
+    });
+
+    return {
+        wikidataId: resolvedWikidataId,
+        storageUrl,
+        imageStatus: "ready",
+        source: candidate.source,
+        attribution,
+    };
+};
+
+/**
  * Cloud Function: resolves (and caches) the cover image for a place.
  *
  * The client reads `place-images/{placeKey}` directly and only calls this on a
@@ -434,130 +644,41 @@ export const resolvePlaceImage = onRequest(
             const hintImageUrl = payload.hintImageUrl
                 ? String(payload.hintImageUrl).trim()
                 : null;
-            const placeKey = placeKeyFor(wikidataId, name);
 
             const db = getFirestore();
-            const docRef = db.collection(COLLECTION).doc(placeKey);
-            const now = Date.now();
-
-            const existing = await docRef.get();
-            if (existing.exists) {
-                const data = existing.data();
-                if (data.status === "ready" && data.storageUrl) {
-                    return res.status(200).json({
-                        status: "ready",
-                        source: data.source,
-                        storageUrl: data.storageUrl,
-                        attribution: data.attribution ?? null,
-                    });
-                }
-                if (data.status === "notFound" && isFreshNegative(data, now)) {
-                    return res.status(200).json({
-                        status: "notFound",
-                        reason: "hard",
-                        officialExpiresAt: data.officialExpiresAt.toMillis(),
-                    });
-                }
-            }
-
-            const candidate = await resolveImageCandidate({
+            const result = await ensurePlaceImageInFirestore(db, {
                 wikidataId,
                 name,
                 hintImageUrl,
             });
 
-            if (!candidate || !candidate.url) {
-                const expiresAt = Timestamp.fromMillis(
-                    now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
-                );
-                await docRef.set({
-                    schemaVersion: 1,
-                    placeKey,
-                    wikidataId: wikidataId || null,
-                    status: "notFound",
-                    source: null,
-                    reason: "hard",
-                    officialExpiresAt: expiresAt,
-                    resolvedAt: FieldValue.serverTimestamp(),
-                });
-                return res.status(200).json({
-                    status: "notFound",
-                    reason: "hard",
-                    officialExpiresAt: expiresAt.toMillis(),
-                });
-            }
-
-            const imgRes = await httpGet(candidate.url, { headers: WIKI_HEADERS });
-            if (!imgRes.ok) {
-                // Candidate vanished (e.g. 404) — treat as a hard negative.
-                const expiresAt = Timestamp.fromMillis(
-                    now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
-                );
-                await docRef.set({
-                    schemaVersion: 1,
-                    placeKey,
-                    wikidataId: wikidataId || null,
-                    status: "notFound",
-                    source: null,
-                    reason: "hard",
-                    officialExpiresAt: expiresAt,
-                    resolvedAt: FieldValue.serverTimestamp(),
-                });
-                return res.status(200).json({
-                    status: "notFound",
-                    reason: "hard",
-                    officialExpiresAt: expiresAt.toMillis(),
-                });
-            }
-
-            const bytes = Buffer.from(await imgRes.arrayBuffer());
-            const webpBytes = await sharp(bytes)
-                .resize(COVER_WIDTH, COVER_WIDTH, {
-                    fit: "inside",
-                    withoutEnlargement: true,
-                })
-                .webp({ quality: COVER_WEBP_QUALITY })
-                .toBuffer();
-
-            const bucket = getStorage().bucket();
-            const storagePath = `place-images/${placeKey}/cover.webp`;
-            const token = randomUUID();
-            const mime = "image/webp";
-            await bucket.file(storagePath).save(webpBytes, {
-                resumable: false,
-                contentType: mime,
-                metadata: {
-                    cacheControl: "public, max-age=604800",
-                    metadata: { firebaseStorageDownloadTokens: token },
-                },
-            });
-            const storageUrl =
-                `https://firebasestorage.googleapis.com/v0/b/${bucket.name}` +
-                `/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
-
-            const attribution = candidate.attribution ?? normalizeAttribution(null, candidate.sourceUrl);
-
-            await docRef.set({
-                schemaVersion: 2,
-                placeKey,
-                wikidataId: wikidataId || null,
-                status: "ready",
-                source: candidate.source,
-                storageUrl,
-                storagePath,
-                mime,
-                attribution,
-                officialExpiresAt: null,
-                resolvedAt: FieldValue.serverTimestamp(),
+            await patchExplorePopularPlace(db, payload, {
+                wikidataId: result.wikidataId,
+                storageUrl: result.storageUrl ?? null,
+                imageStatus: result.imageStatus,
             });
 
             const elapsed = Date.now() - start;
-            console.log(`[${FUNCTION_NAME}] resolved ${placeKey} (${candidate.source}) in ${elapsed}ms`);
+            if (result.imageStatus === "ready") {
+                if (result.source) {
+                    console.log(
+                        `[${FUNCTION_NAME}] resolved ${placeKeyFor(result.wikidataId, name)} (${result.source}) in ${elapsed}ms`,
+                    );
+                }
+                return res.status(200).json({
+                    status: "ready",
+                    source: result.source,
+                    storageUrl: result.storageUrl,
+                    attribution: result.attribution ?? null,
+                    wikidataId: result.wikidataId,
+                });
+            }
+
             return res.status(200).json({
-                status: "ready",
-                source: candidate.source,
-                storageUrl,
-                attribution,
+                status: "notFound",
+                reason: "hard",
+                officialExpiresAt: result.officialExpiresAt?.toMillis?.() ?? null,
+                wikidataId: result.wikidataId,
             });
         } catch (error) {
             const elapsed = Date.now() - start;

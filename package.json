@@ -17,6 +17,7 @@
         "deploy:onUserProfileUpdate": "firebase deploy --only functions:onUserProfileUpdate",
         "deploy:resolvePlaceImage": "firebase deploy --only functions:resolvePlaceImage",
         "deploy:resolveSearchAnchor": "firebase deploy --only functions:resolveSearchAnchor",
+        "deploy:resolveGeoLocationPopular": "firebase deploy --only functions:resolveGeoLocationPopular",
         "deploy:firestore": "firebase deploy --only firestore",
         "deploy:storage": "firebase deploy --only storage",
         "serve": "firebase emulators:start --only functions",
