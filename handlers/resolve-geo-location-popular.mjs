@@ -33,6 +33,7 @@ import {
 import {
     TransientUpstreamError,
     ensurePlaceImageInFirestore,
+    isWikimediaImageUrl,
 } from "./resolve-place-image.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
@@ -240,8 +241,13 @@ export const reconcileCachedPopularPlaces = async (
         const hintImageUrl =
             typeof place.image === "string" &&
             place.image.trim() &&
-            !place.storageUrl
+            !place.storageUrl &&
+            isWikimediaImageUrl(place.image)
                 ? place.image.trim()
+                : null;
+        const wikipediaUrl =
+            typeof place.wikipediaUrl === "string" && place.wikipediaUrl.trim()
+                ? place.wikipediaUrl.trim()
                 : null;
 
         try {
@@ -251,6 +257,7 @@ export const reconcileCachedPopularPlaces = async (
                     wikidataId: resolvedQid,
                     name,
                     hintImageUrl,
+                    wikipediaUrl,
                 },
                 fetchImpl,
             );

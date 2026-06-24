@@ -119,13 +119,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Shared geocode search-anchor cache. Written exclusively by the
-    // `resolveSearchAnchor` Cloud Function; clients may only read.
-    match /geocode-anchors/{anchorKey} {
-      allow read: if isSignedIn();
-      allow write: if false;
-    }
-
     // Shared geo-location cache for nearby popular places. Written exclusively
     // by `resolveGeoLocationPopular`; clients may only read.
     match /geo-location/{locationKey} {

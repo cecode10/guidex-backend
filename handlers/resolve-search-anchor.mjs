@@ -1,10 +1,8 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
 import {
-    COLLECTION,
     deriveRadiusKm,
     geocodingLanguageFromAppLanguage,
     geocodeAnchorCacheKey,
@@ -61,28 +59,8 @@ export const fetchGoogleGeocode = async (address, language, apiKey) => {
 };
 
 /**
- * @param {Record<string, unknown>} doc
- * @returns {Record<string, unknown>}
- */
-export const anchorResponseFromDoc = (doc) => {
-    if (doc.status === "notFound") {
-        return { status: "notFound" };
-    }
-    return {
-        status: "ready",
-        lat: doc.lat,
-        lng: doc.lng,
-        label: doc.label ?? "",
-        types: Array.isArray(doc.types) ? doc.types : [],
-        radiusKm: doc.radiusKm ?? 2,
-        source: doc.source ?? "google",
-    };
-};
-
-/**
- * Cloud Function: resolves (and caches) a geocode search anchor via Google
- * Geocoding. Clients read `geocode-anchors/{key}` directly and call this on
- * a miss so the API key stays server-side.
+ * Cloud Function: resolves a geocode search anchor via Google Geocoding so
+ * the API key stays server-side.
  */
 export const resolveSearchAnchor = onRequest(
     {
@@ -114,29 +92,10 @@ export const resolveSearchAnchor = onRequest(
             }
 
             const language = geocodingLanguageFromAppLanguage(payload.language);
-            const db = getFirestore();
-            const docRef = db.collection(COLLECTION).doc(key);
-            const existing = await docRef.get();
-            if (existing.exists) {
-                const data = existing.data() ?? {};
-                const elapsed = Date.now() - start;
-                console.log(`[${FUNCTION_NAME}] cache hit ${key} in ${elapsed}ms`);
-                return res.status(200).json(anchorResponseFromDoc(data));
-            }
-
             const apiKey = googleMapsApiKey.value();
             const geocode = await fetchGoogleGeocode(rawQuery, language, apiKey);
-            const now = FieldValue.serverTimestamp();
 
             if (geocode.status !== "OK" || !geocode.results?.length) {
-                await docRef.set({
-                    key,
-                    status: "notFound",
-                    source: "google",
-                    language,
-                    createdAt: now,
-                    updatedAt: now,
-                });
                 const elapsed = Date.now() - start;
                 console.log(`[${FUNCTION_NAME}] notFound ${key} (${geocode.status}) in ${elapsed}ms`);
                 return res.status(200).json({ status: "notFound" });
@@ -157,8 +116,9 @@ export const resolveSearchAnchor = onRequest(
             const types = Array.isArray(best.types)
                 ? best.types.map((value) => String(value))
                 : [];
-            const doc = {
-                key,
+            const elapsed = Date.now() - start;
+            console.log(`[${FUNCTION_NAME}] resolved ${key} in ${elapsed}ms`);
+            return res.status(200).json({
                 status: "ready",
                 lat,
                 lng,
@@ -166,15 +126,7 @@ export const resolveSearchAnchor = onRequest(
                 types,
                 radiusKm: deriveRadiusKm(types),
                 source: "google",
-                language,
-                createdAt: now,
-                updatedAt: now,
-            };
-            await docRef.set(doc);
-
-            const elapsed = Date.now() - start;
-            console.log(`[${FUNCTION_NAME}] resolved ${key} in ${elapsed}ms`);
-            return res.status(200).json(anchorResponseFromDoc(doc));
+            });
         } catch (error) {
             const elapsed = Date.now() - start;
             const statusCode = error?.statusCode || 500;

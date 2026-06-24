@@ -19,6 +19,8 @@ const COLLECTION = "place-images";
 
 /** Days a genuine "no image" result is trusted before the cascade re-runs. */
 const HARD_NEGATIVE_TTL_DAYS = 30;
+/** Short TTL for ambiguous name-only misses that may be caused by lookup policy. */
+const WEAK_NEGATIVE_TTL_DAYS = 3;
 /** Server-resized thumbnail width we persist as the place cover. */
 const COVER_WIDTH = 1200;
 const COVER_WEBP_QUALITY = 80;
@@ -274,6 +276,52 @@ const buildCandidate = ({ url, source, sourceUrl, attribution }) => ({
     attribution: normalizeAttribution(attribution, sourceUrl),
 });
 
+/** GeoNames thumbnail URLs are display-only hints; they 403 server-side fetches. */
+export const isGeoNamesImageUrl = (raw) => {
+    if (!raw) return false;
+    try {
+        return new URL(String(raw)).hostname.toLowerCase().includes("geonames.org");
+    } catch {
+        return false;
+    }
+};
+
+/** Only Wikimedia/Wikipedia URLs are safe to fetch from our backend. */
+export const isWikimediaImageUrl = (raw) => {
+    if (!raw) return false;
+    try {
+        const host = new URL(String(raw)).hostname.toLowerCase();
+        return host.endsWith("wikimedia.org") || host.endsWith("wikipedia.org");
+    } catch {
+        return false;
+    }
+};
+
+/** Hard-negative docs at schemaVersion 3 went through the full cascade. */
+const NEGATIVE_SCHEMA_VERSION = 3;
+
+const wikipediaTitleFromUrl = (raw) => {
+    if (!raw) return null;
+    let uri;
+    try {
+        uri = new URL(raw);
+    } catch {
+        return null;
+    }
+    const host = uri.hostname.toLowerCase();
+    if (!host.endsWith("wikipedia.org")) return null;
+    const marker = "/wiki/";
+    const idx = uri.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    const encoded = uri.pathname.slice(idx + marker.length);
+    if (!encoded || encoded.includes(":")) return null;
+    try {
+        return decodeURIComponent(encoded).replace(/_/g, " ");
+    } catch {
+        return encoded.replace(/_/g, " ");
+    }
+};
+
 /**
  * Resolves a Commons file name to a direct `upload.wikimedia.org` thumbnail
  * URL and licensing metadata via the `imageinfo` API. This CDN path has far
@@ -357,9 +405,14 @@ export const resolveImageCandidate = async ({
     wikidataId,
     name,
     hintImageUrl,
+    wikipediaUrl,
     fetchImpl = fetch,
 }) => {
-    if (hintImageUrl && /^https?:\/\//i.test(hintImageUrl)) {
+    if (
+        hintImageUrl &&
+        /^https?:\/\//i.test(hintImageUrl) &&
+        isWikimediaImageUrl(hintImageUrl)
+    ) {
         // Hints are typically Wikidata P18 `Special:FilePath` URLs. Resolve the
         // underlying file to a CDN thumbnail instead of hitting FilePath.
         const file = commonsFileFromFilePath(hintImageUrl);
@@ -404,6 +457,14 @@ export const resolveImageCandidate = async ({
         }
     }
 
+    const wikipediaTitle = wikipediaTitleFromUrl(wikipediaUrl);
+    if (wikipediaTitle) {
+        const thumb = await resolveWikipediaThumb(wikipediaTitle, fetchImpl);
+        if (thumb) {
+            return enrichFromUploadUrl(thumb, "wikipedia", wikipediaUrl, fetchImpl);
+        }
+    }
+
     if (name) {
         const thumb = await resolveWikipediaThumb(name, fetchImpl);
         if (thumb) {
@@ -415,7 +476,17 @@ export const resolveImageCandidate = async ({
     return null;
 };
 
+const isRetryableNegative = (data) => {
+    if (data?.status !== "notFound" || data?.reason !== "hard" || data?.storageUrl) {
+        return false;
+    }
+    if (!/^Q\d+$/.test(String(data?.wikidataId ?? "").trim())) return false;
+    // v1/v2 hard negatives may have trusted GeoNames hints that 403 upstream.
+    return Number(data?.schemaVersion ?? 1) < NEGATIVE_SCHEMA_VERSION;
+};
+
 const isFreshNegative = (data, now) => {
+    if (isRetryableNegative(data)) return false;
     const expires = data?.officialExpiresAt;
     if (!expires) return false;
     const expiresMs =
@@ -473,6 +544,7 @@ const patchExplorePopularPlace = async (db, payload, patch) => {
  *   wikidataId?: string | null,
  *   name: string,
  *   hintImageUrl?: string | null,
+ *   wikipediaUrl?: string | null,
  * }} input
  * @param {typeof fetch} [fetchImpl]
  * @returns {Promise<{
@@ -486,7 +558,7 @@ const patchExplorePopularPlace = async (db, payload, patch) => {
  */
 export const ensurePlaceImageInFirestore = async (
     db,
-    { wikidataId, name, hintImageUrl },
+    { wikidataId, name, hintImageUrl, wikipediaUrl },
     fetchImpl = fetch,
 ) => {
     const authoritativeWikidataId = await resolveAuthoritativeWikidataId(
@@ -521,24 +593,27 @@ export const ensurePlaceImageInFirestore = async (
         }
     }
 
-    const candidate = await resolveImageCandidate({
+    let candidate = await resolveImageCandidate({
         wikidataId: resolvedWikidataId,
         name,
         hintImageUrl,
+        wikipediaUrl,
         fetchImpl,
     });
 
     if (!candidate || !candidate.url) {
+        const isWeakNegative = !resolvedWikidataId && !hintImageUrl && !wikipediaUrl;
+        const ttlDays = isWeakNegative ? WEAK_NEGATIVE_TTL_DAYS : HARD_NEGATIVE_TTL_DAYS;
         const expiresAt = Timestamp.fromMillis(
-            now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
+            now + ttlDays * 24 * 60 * 60 * 1000,
         );
         await docRef.set({
-            schemaVersion: 1,
+            schemaVersion: NEGATIVE_SCHEMA_VERSION,
             placeKey,
             wikidataId: resolvedWikidataId,
             status: "notFound",
             source: null,
-            reason: "hard",
+            reason: isWeakNegative ? "weak" : "hard",
             officialExpiresAt: expiresAt,
             resolvedAt: FieldValue.serverTimestamp(),
         });
@@ -546,16 +621,34 @@ export const ensurePlaceImageInFirestore = async (
             wikidataId: resolvedWikidataId,
             imageStatus: "notFound",
             officialExpiresAt: expiresAt,
+            reason: isWeakNegative ? "weak" : "hard",
         };
     }
 
-    const imgRes = await httpGet(candidate.url, { headers: WIKI_HEADERS, fetchImpl });
+    let imgRes = await httpGet(candidate.url, { headers: WIKI_HEADERS, fetchImpl });
+    if (
+        !imgRes.ok &&
+        hintImageUrl &&
+        (isGeoNamesImageUrl(hintImageUrl) || !isWikimediaImageUrl(hintImageUrl))
+    ) {
+        const fallback = await resolveImageCandidate({
+            wikidataId: resolvedWikidataId,
+            name,
+            hintImageUrl: null,
+            wikipediaUrl,
+            fetchImpl,
+        });
+        if (fallback?.url && fallback.url !== candidate.url) {
+            candidate = fallback;
+            imgRes = await httpGet(candidate.url, { headers: WIKI_HEADERS, fetchImpl });
+        }
+    }
     if (!imgRes.ok) {
         const expiresAt = Timestamp.fromMillis(
             now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
         );
         await docRef.set({
-            schemaVersion: 1,
+            schemaVersion: NEGATIVE_SCHEMA_VERSION,
             placeKey,
             wikidataId: resolvedWikidataId,
             status: "notFound",
@@ -568,6 +661,7 @@ export const ensurePlaceImageInFirestore = async (
             wikidataId: resolvedWikidataId,
             imageStatus: "notFound",
             officialExpiresAt: expiresAt,
+            reason: "hard",
         };
     }
 
@@ -644,12 +738,16 @@ export const resolvePlaceImage = onRequest(
             const hintImageUrl = payload.hintImageUrl
                 ? String(payload.hintImageUrl).trim()
                 : null;
+            const wikipediaUrl = payload.wikipediaUrl
+                ? String(payload.wikipediaUrl).trim()
+                : null;
 
             const db = getFirestore();
             const result = await ensurePlaceImageInFirestore(db, {
                 wikidataId,
                 name,
                 hintImageUrl,
+                wikipediaUrl,
             });
 
             await patchExplorePopularPlace(db, payload, {
@@ -676,7 +774,7 @@ export const resolvePlaceImage = onRequest(
 
             return res.status(200).json({
                 status: "notFound",
-                reason: "hard",
+                reason: result.reason ?? "hard",
                 officialExpiresAt: result.officialExpiresAt?.toMillis?.() ?? null,
                 wikidataId: result.wikidataId,
             });

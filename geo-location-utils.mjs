@@ -196,7 +196,47 @@ export const resolveWikidataEntityForSearchQuery = async (query, fetchImpl = fet
     const qid = String(hit?.id ?? "").trim();
     if (!/^Q\d+$/.test(qid)) return null;
     const label = String(hit?.label ?? "").trim();
-    return { qid, label: label || trimmed };
+    const details = await resolveWikidataEntityImageHints(qid, fetchImpl);
+    return { qid, label: label || trimmed, ...details };
+};
+
+/**
+ * @param {string} wikidataId
+ * @param {typeof fetch} [fetchImpl]
+ * @returns {Promise<{ wikipediaUrl: string | null, image: string | null }>}
+ */
+export const resolveWikidataEntityImageHints = async (wikidataId, fetchImpl = fetch) => {
+    const qid = String(wikidataId || "").trim();
+    if (!/^Q\d+$/.test(qid)) return { wikipediaUrl: null, image: null };
+
+    const url =
+        `https://www.wikidata.org/w/api.php?action=wbgetentities` +
+        `&props=sitelinks|claims&ids=${encodeURIComponent(qid)}` +
+        `&sitefilter=enwiki&format=json&origin=*`;
+    logExternalApiRequestUrl(url, {
+        extra: `entity image hints wikidataId=${qid}`,
+    });
+    const response = await fetchImpl(url, { headers: WIKI_HEADERS });
+    logExternalApiResponseUrl(url, response.status, {
+        extra: `entity image hints wikidataId=${qid}`,
+    });
+    if (!response.ok) return { wikipediaUrl: null, image: null };
+
+    const body = await response.json();
+    const entity = body?.entities?.[qid];
+    const title = String(entity?.sitelinks?.enwiki?.title ?? "").trim();
+    const imageFile = String(
+        entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value ?? "",
+    ).trim();
+
+    return {
+        wikipediaUrl: title
+            ? `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`
+            : null,
+        image: imageFile
+            ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(imageFile)}`
+            : null,
+    };
 };
 
 /**
@@ -256,11 +296,17 @@ export const ensureSearchAnchorInPopularPlaces = async (
     }
 
     let anchorWikidataId = null;
+    let anchorImage = null;
+    let anchorWikipediaUrl = null;
     try {
         const entity = await resolveWikidataEntityForSearchQuery(query, fetchImpl);
         anchorWikidataId = entity?.qid ?? null;
+        anchorImage = entity?.image ?? null;
+        anchorWikipediaUrl = entity?.wikipediaUrl ?? null;
     } catch {
         anchorWikidataId = null;
+        anchorImage = null;
+        anchorWikipediaUrl = null;
     }
 
     if (!anchorWikidataId) {
@@ -304,11 +350,12 @@ export const ensureSearchAnchorInPopularPlaces = async (
             city: city ?? "",
             countryCode: cc,
             countryFlag: flag,
-            image: null,
-            wikipediaUrl: wikipediaUrlFromGeoNamesRow({}, query),
+            image: anchorImage,
+            wikipediaUrl: anchorWikipediaUrl ?? wikipediaUrlFromGeoNamesRow({}, query),
             wikidataId: anchorWikidataId,
             storageUrl: null,
             imageStatus: null,
+            isSearchAnchor: true,
             lat,
             lng,
             sitelinks: 9999,
@@ -582,6 +629,7 @@ export const popularPlaceDocFromPlace = (place, index) => ({
     wikidataId: place.wikidataId ?? null,
     storageUrl: place.storageUrl ?? null,
     imageStatus: place.imageStatus ?? null,
+    isSearchAnchor: place.isSearchAnchor === true,
     lat: place.lat,
     lng: place.lng,
     sitelinks: place.sitelinks ?? 0,
@@ -609,6 +657,7 @@ export const popularPlaceFromDoc = (data) => ({
     wikipediaUrl: typeof data.wikipediaUrl === "string" ? data.wikipediaUrl : null,
     wikidataId: typeof data.wikidataId === "string" ? data.wikidataId : null,
     imageStatus: typeof data.imageStatus === "string" ? data.imageStatus : null,
+    isSearchAnchor: data.isSearchAnchor === true,
     lat: typeof data.lat === "number" ? data.lat : 0,
     lng: typeof data.lng === "number" ? data.lng : 0,
     sitelinks: typeof data.sitelinks === "number" ? data.sitelinks : 0,
@@ -635,7 +684,7 @@ export const isValidWikidataId = (wikidataId) =>
  * @returns {boolean}
  */
 export const isPopularPlaceImageCached = (place) => {
-    if (place.imageStatus === "ready" || place.imageStatus === "notFound") return true;
+    if (place.imageStatus === "ready") return true;
     if (typeof place.storageUrl === "string" && place.storageUrl.trim()) return true;
     return false;
 };

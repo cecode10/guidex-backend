@@ -2,8 +2,6 @@
 
 import { createHash } from "node:crypto";
 
-export const COLLECTION = "geocode-anchors";
-
 /** Maps app i18n language keys to Google Geocoding ISO 639-1 codes. */
 export const APP_LANGUAGE_TO_GEOCODE = {
     english: "en",
@@ -47,8 +45,8 @@ const CONTAINER_GEOCODE_TYPES = new Set([
 ]);
 
 /**
- * Normalizes a free-form search query into a stable Firestore doc id / cache key.
- * Keeps letters and digits from any Unicode script. Must stay in sync with Dart
+ * Normalizes a free-form search query into a stable cache key. Keeps letters and
+ * digits from any Unicode script. Must stay in sync with Dart
  * `GeocodeAnchorUtils.normalizeGeocodeKey`.
  *
  * @param {string} query
@@ -63,7 +61,7 @@ export const normalizeGeocodeKey = (query) =>
         .trim();
 
 /**
- * Cache key for `geocode-anchors/{key}`. Uses [normalizeGeocodeKey] when possible;
+ * Cache key for geocode anchor lookups. Uses [normalizeGeocodeKey] when possible;
  * falls back to a stable SHA-256 prefix for punctuation-only input.
  *
  * @param {string} query
