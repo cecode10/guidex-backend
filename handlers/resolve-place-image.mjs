@@ -495,6 +495,20 @@ const isFreshNegative = (data, now) => {
 };
 
 /**
+ * True when a cached hard-negative may be stale: the Wikidata entity now has P18
+ * even though a prior resolve/download attempt was cached as notFound.
+ *
+ * @param {string | null | undefined} wikidataId
+ * @param {typeof fetch} fetchImpl
+ */
+const negativeMayHaveResolvableImage = async (wikidataId, fetchImpl) => {
+    const qid = String(wikidataId ?? "").trim();
+    if (!/^Q\d+$/.test(qid)) return false;
+    const file = await resolveWikidataImageFile(qid, fetchImpl);
+    return Boolean(file);
+};
+
+/**
  * @param {string | null | undefined} wikidataId
  * @param {string} name
  * @param {typeof fetch} fetchImpl
@@ -585,11 +599,15 @@ export const ensurePlaceImageInFirestore = async (
             };
         }
         if (data.status === "notFound" && isFreshNegative(data, now)) {
-            return {
-                wikidataId: data.wikidataId || resolvedWikidataId,
-                imageStatus: "notFound",
-                officialExpiresAt: data.officialExpiresAt,
-            };
+            const qidForRetry = data.wikidataId || resolvedWikidataId;
+            const mayRetry = await negativeMayHaveResolvableImage(qidForRetry, fetchImpl);
+            if (!mayRetry) {
+                return {
+                    wikidataId: data.wikidataId || resolvedWikidataId,
+                    imageStatus: "notFound",
+                    officialExpiresAt: data.officialExpiresAt,
+                };
+            }
         }
     }
 
@@ -644,25 +662,9 @@ export const ensurePlaceImageInFirestore = async (
         }
     }
     if (!imgRes.ok) {
-        const expiresAt = Timestamp.fromMillis(
-            now + HARD_NEGATIVE_TTL_DAYS * 24 * 60 * 60 * 1000,
+        throw new TransientUpstreamError(
+            `image download failed (${imgRes.status}) for ${candidate.url}`,
         );
-        await docRef.set({
-            schemaVersion: NEGATIVE_SCHEMA_VERSION,
-            placeKey,
-            wikidataId: resolvedWikidataId,
-            status: "notFound",
-            source: null,
-            reason: "hard",
-            officialExpiresAt: expiresAt,
-            resolvedAt: FieldValue.serverTimestamp(),
-        });
-        return {
-            wikidataId: resolvedWikidataId,
-            imageStatus: "notFound",
-            officialExpiresAt: expiresAt,
-            reason: "hard",
-        };
     }
 
     const bytes = Buffer.from(await imgRes.arrayBuffer());

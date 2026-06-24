@@ -23,7 +23,8 @@
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "cleanup:bad-image-negatives": "node scripts/delete-bad-place-image-negatives.mjs --dry-run --clear-explore --credentials scripts/guidex-afc30-2758ce305a68.json"
     },
     "devDependencies": {
         "@eslint/js": "^9.21.0",

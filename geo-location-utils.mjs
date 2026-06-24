@@ -336,7 +336,9 @@ export const ensureSearchAnchorInPopularPlaces = async (
             distance: 0,
             lat,
             lng,
-            wikidataId: anchorWikidataId ?? matched.wikidataId ?? null,
+            wikidataId: matched.wikidataId ?? anchorWikidataId ?? null,
+            image: matched.image ?? anchorImage ?? null,
+            wikipediaUrl: matched.wikipediaUrl ?? anchorWikipediaUrl ?? null,
             sitelinks:
                 typeof matched.sitelinks === "number" && matched.sitelinks > 0
                     ? matched.sitelinks
