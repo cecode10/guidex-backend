@@ -276,16 +276,6 @@ const buildCandidate = ({ url, source, sourceUrl, attribution }) => ({
     attribution: normalizeAttribution(attribution, sourceUrl),
 });
 
-/** GeoNames thumbnail URLs are display-only hints; they 403 server-side fetches. */
-export const isGeoNamesImageUrl = (raw) => {
-    if (!raw) return false;
-    try {
-        return new URL(String(raw)).hostname.toLowerCase().includes("geonames.org");
-    } catch {
-        return false;
-    }
-};
-
 /** Only Wikimedia/Wikipedia URLs are safe to fetch from our backend. */
 export const isWikimediaImageUrl = (raw) => {
     if (!raw) return false;
@@ -481,7 +471,7 @@ const isRetryableNegative = (data) => {
         return false;
     }
     if (!/^Q\d+$/.test(String(data?.wikidataId ?? "").trim())) return false;
-    // v1/v2 hard negatives may have trusted GeoNames hints that 403 upstream.
+    // v1/v2 hard negatives predate the full cascade and may be stale.
     return Number(data?.schemaVersion ?? 1) < NEGATIVE_SCHEMA_VERSION;
 };
 
@@ -647,7 +637,7 @@ export const ensurePlaceImageInFirestore = async (
     if (
         !imgRes.ok &&
         hintImageUrl &&
-        (isGeoNamesImageUrl(hintImageUrl) || !isWikimediaImageUrl(hintImageUrl))
+        !isWikimediaImageUrl(hintImageUrl)
     ) {
         const fallback = await resolveImageCandidate({
             wikidataId: resolvedWikidataId,

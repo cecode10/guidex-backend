@@ -1,6 +1,6 @@
 /**
  * Debug logging for third-party geo / encyclopedia APIs.
- * Strips secrets (API keys, GeoNames username) from logged URLs.
+ * Strips secrets (API keys) from logged URLs.
  */
 
 /**
@@ -26,7 +26,6 @@ export const providerFromUrl = (url) => {
     try {
         const host = new URL(String(url)).hostname.toLowerCase();
         if (host.includes("googleapis.com")) return "google-geocoding";
-        if (host.includes("geonames.org")) return "geonames";
         if (host.includes("wikidata.org")) return "wikidata";
         if (host.includes("wikipedia.org")) return "wikipedia";
         if (host.includes("wikimedia.org")) return "wikimedia";

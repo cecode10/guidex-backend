@@ -8,7 +8,6 @@ import {
 export const COLLECTION = "geo-location";
 export const POPULAR_AROUND_SUBCOLLECTION = "popularAroundList";
 export const MAX_NEARBY_RESULTS = 30;
-export const DEFAULT_RADIUS_KM = 10;
 /** Max distance to treat a nearby row as the searched POI when promoting it. */
 export const SEARCH_ANCHOR_MATCH_RADIUS_METERS = 250;
 /** Decimal places for `geo-location/{lat}_{lng}` cache doc ids (~11 m). */
@@ -271,7 +270,7 @@ export const findSearchAnchorPlaceIndex = (
 
 /**
  * Ensures the user's searched POI appears first in Explore search results.
- * GeoNames nearby Wikipedia often omits the exact establishment at the anchor.
+ * Wikidata nearby SPARQL may omit the exact establishment at the anchor.
  *
  * @param {Array<Record<string, unknown>>} places
  * @param {{
@@ -353,7 +352,7 @@ export const ensureSearchAnchorInPopularPlaces = async (
             countryCode: cc,
             countryFlag: flag,
             image: anchorImage,
-            wikipediaUrl: anchorWikipediaUrl ?? wikipediaUrlFromGeoNamesRow({}, query),
+            wikipediaUrl: anchorWikipediaUrl ?? wikipediaUrlFromTitle(query),
             wikidataId: anchorWikidataId,
             storageUrl: null,
             imageStatus: null,
@@ -376,27 +375,6 @@ export const ensureSearchAnchorInPopularPlaces = async (
 };
 
 /**
- * @param {string} feature
- * @returns {string}
- */
-export const classifyPopularPlaceType = (feature) => {
-    const normalized = String(feature || "")
-        .trim()
-        .toLowerCase();
-    if (!normalized) return "LANDMARK";
-    if (
-        normalized.includes("historic") ||
-        normalized.includes("archaeolog") ||
-        normalized.includes("ruin") ||
-        normalized.includes("castle") ||
-        normalized.includes("fort")
-    ) {
-        return "HISTORICAL";
-    }
-    return "LANDMARK";
-};
-
-/**
  * @param {string} iso
  * @returns {string}
  */
@@ -416,31 +394,15 @@ const WIKI_HEADERS = {
 };
 
 /**
- * GeoNames documents the field as `thumbnailImg`; some payloads use `thumbnail`.
+ * Builds an en.wikipedia URL from an article title when no sitelink is available.
  *
- * @param {Record<string, unknown>} raw
- * @returns {string | null}
- */
-export const thumbnailFromGeoNamesRow = (raw) => {
-    const img = String(raw?.thumbnailImg ?? raw?.thumbnail ?? "").trim();
-    return img || null;
-};
-
-/**
- * @param {Record<string, unknown>} raw
  * @param {string} title
  * @returns {string | null}
  */
-export const wikipediaUrlFromGeoNamesRow = (raw, title) => {
-    const url = String(raw?.wikipediaUrl ?? "").trim();
-    if (url) {
-        if (/^https?:\/\//i.test(url)) return url;
-        return `https://${url.replace(/^\/\//, "")}`;
-    }
-    if (title) {
-        return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
-    }
-    return null;
+export const wikipediaUrlFromTitle = (title) => {
+    const normalized = String(title || "").trim();
+    if (!normalized) return null;
+    return `https://en.wikipedia.org/wiki/${encodeURIComponent(normalized.replace(/ /g, "_"))}`;
 };
 
 /**
@@ -489,20 +451,6 @@ export const resolveWikidataIdsForTitles = async (titles, fetchImpl = fetch) => 
 };
 
 /**
- * @param {unknown} raw
- * @returns {number | null} distance in kilometres when present
- */
-export const distanceKmFromGeoNamesRow = (raw) => {
-    const value = raw?.distance;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-        const parsed = Number.parseFloat(value);
-        if (Number.isFinite(parsed)) return parsed;
-    }
-    return null;
-};
-
-/**
  * @param {number} lat1
  * @param {number} lng1
  * @param {number} lat2
@@ -518,20 +466,6 @@ export const haversineDistanceMeters = (lat1, lng1, lat2, lng2) => {
         Math.sin(dLat / 2) ** 2 +
         Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
     return Math.round(earthRadiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-};
-
-/**
- * @param {number | string | unknown} value
- * @param {number} fallback
- * @returns {number}
- */
-const coordinateFromRow = (value, fallback) => {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-        const parsed = Number.parseFloat(value);
-        if (Number.isFinite(parsed)) return parsed;
-    }
-    return fallback;
 };
 
 /**
@@ -564,53 +498,6 @@ export const enrichPlacesWithWikidataIds = async (places, fetchImpl = fetch) => 
     } catch {
         return places;
     }
-};
-
-/**
- * @param {Array<Record<string, unknown>>} rows
- * @param {{ lat: number, lng: number, city: string, limit?: number }} context
- * @returns {Array<Record<string, unknown>>}
- */
-export const mapGeoNamesRowsToPlaces = (
-    rows,
-    { lat, lng, city, limit = MAX_NEARBY_RESULTS },
-) => {
-    const seen = new Set();
-    const out = [];
-
-    for (const raw of rows) {
-        if (out.length >= limit) break;
-        const name = String(raw?.title || "").trim();
-        if (!name || seen.has(name.toLowerCase())) continue;
-
-        const placeLat = coordinateFromRow(raw?.lat, lat);
-        const placeLng = coordinateFromRow(raw?.lng, lng);
-        const countryCode = String(raw?.countryCode || "").trim().toUpperCase();
-        const distanceKmFromApi = distanceKmFromGeoNamesRow(raw);
-        const distanceKm =
-            distanceKmFromApi != null && distanceKmFromApi > 0
-                ? distanceKmFromApi
-                : haversineDistanceMeters(lat, lng, placeLat, placeLng) / 1000;
-        const rank = typeof raw?.rank === "number" ? raw.rank : 0;
-        const feature = String(raw?.feature || "");
-
-        seen.add(name.toLowerCase());
-        out.push({
-            name,
-            type: classifyPopularPlaceType(feature),
-            distance: Math.round(distanceKm * 1000),
-            city,
-            countryCode: countryCode || null,
-            countryFlag: flagFromIsoCode(countryCode),
-            image: thumbnailFromGeoNamesRow(raw),
-            wikipediaUrl: wikipediaUrlFromGeoNamesRow(raw, name),
-            lat: placeLat,
-            lng: placeLng,
-            sitelinks: rank,
-        });
-    }
-
-    return out;
 };
 
 /**

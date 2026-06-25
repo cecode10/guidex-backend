@@ -7,12 +7,9 @@ import { geocodingLanguageFromAppLanguage } from "../geocode-anchor-utils.mjs";
 import {
     logExternalApiRequest,
     logExternalApiResponse,
-    logExternalApiRequestUrl,
-    logExternalApiResponseUrl,
 } from "../external-api-debug.mjs";
 import {
     COLLECTION,
-    DEFAULT_RADIUS_KM,
     MAX_NEARBY_RESULTS,
     POPULAR_AROUND_SUBCOLLECTION,
     countryCodeFromGeocodeResult,
@@ -23,13 +20,13 @@ import {
     geoLocationKeyFromCoords,
     isPopularPlaceImageCached,
     isValidWikidataId,
-    mapGeoNamesRowsToPlaces,
     mostPopularAroundFromPlaces,
     patchPopularPlaceImage,
     patchPopularPlaceWikidataId,
     popularPlaceDocFromPlace,
     popularPlaceFromDoc,
 } from "../geo-location-utils.mjs";
+import { fetchWikidataNearbyPopularPlaces } from "../wikidata-nearby-utils.mjs";
 import {
     TransientUpstreamError,
     ensurePlaceImageInFirestore,
@@ -37,10 +34,8 @@ import {
 } from "./resolve-place-image.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
-const geonamesUsername = defineSecret("GEONAMES_USERNAME");
 const FUNCTION_NAME = "resolveGeoLocationPopular";
 const GOOGLE_TIMEOUT_MS = 12_000;
-const GEONAMES_TIMEOUT_MS = 20_000;
 
 /**
  * @param {number} lat
@@ -78,58 +73,6 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
             `status=${body.status} reverse-geocode lat=${lat} lng=${lng}`,
         );
         return body;
-    } finally {
-        clearTimeout(timer);
-    }
-};
-
-/**
- * @param {number} lat
- * @param {number} lng
- * @param {string} username
- * @returns {Promise<Array<Record<string, unknown>>>}
- */
-export const fetchGeoNamesNearbyWikipedia = async (lat, lng, username) => {
-    const url = new URL("https://secure.geonames.org/findNearbyWikipediaJSON");
-    url.searchParams.set("lat", String(lat));
-    url.searchParams.set("lng", String(lng));
-    url.searchParams.set("radius", String(DEFAULT_RADIUS_KM));
-    url.searchParams.set("maxRows", String(MAX_NEARBY_RESULTS));
-    url.searchParams.set("lang", "en");
-    url.searchParams.set("username", username);
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GEONAMES_TIMEOUT_MS);
-    try {
-        logExternalApiRequestUrl(url.toString(), {
-            extra: `findNearbyWikipedia lat=${lat} lng=${lng}`,
-        });
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) {
-            logExternalApiResponse(
-                "geonames",
-                `HTTP ${response.status} findNearbyWikipedia lat=${lat} lng=${lng}`,
-            );
-            throw new Error(`GeoNames HTTP ${response.status}`);
-        }
-        const body = /** @type {{ status?: Record<string, unknown>, geonames?: Array<Record<string, unknown>> }} */ (
-            await response.json()
-        );
-        if (body.status) {
-            logExternalApiResponse(
-                "geonames",
-                `error lat=${lat} lng=${lng} message=${String(body.status.message ?? JSON.stringify(body.status))}`,
-            );
-            throw new Error(
-                `GeoNames error: ${String(body.status.message ?? JSON.stringify(body.status))}`,
-            );
-        }
-        const rows = Array.isArray(body.geonames) ? body.geonames : [];
-        logExternalApiResponse(
-            "geonames",
-            `rows=${rows.length} findNearbyWikipedia lat=${lat} lng=${lng}`,
-        );
-        return rows;
     } finally {
         clearTimeout(timer);
     }
@@ -297,7 +240,7 @@ export const reconcileCachedPopularPlaces = async (
 /**
  * Cloud Function: keys `geo-location/{lat}_{lng}` from rounded coordinates,
  * reverse-geocodes via Google for display metadata, looks up Firestore, and
- * on a miss loads GeoNames nearby places into `popularAroundList/*`.
+ * on a miss loads Wikidata nearby POIs into `popularAroundList/*`.
  */
 export const resolveGeoLocationPopular = onRequest(
     {
@@ -305,7 +248,7 @@ export const resolveGeoLocationPopular = onRequest(
         region: "europe-west3",
         timeoutSeconds: 60,
         memory: "512MiB",
-        secrets: [googleMapsApiKey, geonamesUsername],
+        secrets: [googleMapsApiKey],
     },
     async (req, res) => {
         const start = Date.now();
@@ -385,18 +328,16 @@ export const resolveGeoLocationPopular = onRequest(
                 }
             }
 
-            const rows = await fetchGeoNamesNearbyWikipedia(
+            let places = await fetchWikidataNearbyPopularPlaces(
                 lat,
                 lng,
-                geonamesUsername.value(),
+                {
+                    city,
+                    countryCode,
+                    countryFlag,
+                    limit: MAX_NEARBY_RESULTS,
+                },
             );
-            const mapped = mapGeoNamesRowsToPlaces(rows, {
-                lat,
-                lng,
-                city,
-                limit: MAX_NEARBY_RESULTS,
-            });
-            let places = await enrichPlacesWithWikidataIds(mapped);
             if (searchQuery) {
                 places = await ensureSearchAnchorInPopularPlaces(places, {
                     searchQuery,
