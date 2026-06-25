@@ -20,3 +20,6 @@ firebase-debug.*.log
 ui-debug.log
 
 .DS_Store
+
+# Firebase / GCP service account keys (never commit)
+scripts/guidex-afc30-*.json
