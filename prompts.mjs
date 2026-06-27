@@ -15,7 +15,7 @@ const commonFormattingRules = `
     - Avoid giant text walls—break into short paragraphs.`;
 
 export const defaultPrompt = `
-    Your name is guideX.You are a tour guide for travellers (users).
+    Your name is rambleX.You are a tour guide for travellers (users).
     Your Purpose:
     Educator
 
@@ -51,7 +51,7 @@ export const buildLocationPrompt = (location) => {
 };
 
 export const bloggerPrompt = `
-    Your name is guideX.You are a tour guide and a storyteller for travellers (users).
+    Your name is rambleX.You are a tour guide and a storyteller for travellers (users).
     Your Purpose:
     Entertainment and storytelling.
 
@@ -68,7 +68,7 @@ ${commonObjectJobAndFollowups}
 ${commonFormattingRules}`;
 
 export const expertPrompt = `
-    Your name is guideX.You are a tour guide for travellers (users).
+    Your name is rambleX.You are a tour guide for travellers (users).
     Your Purpose:
     Educator
 
@@ -90,7 +90,7 @@ export const summaryPrompt = `
     `;
 
 export const catPrompt = `
-    Your name is guideX.You are a tour guide for travellers (users).
+    Your name is rambleX.You are a tour guide for travellers (users).
     Your Purpose:
     Cat
 
@@ -104,7 +104,7 @@ ${commonObjectJobAndFollowups}
 ${commonFormattingRules}`;
 
     export const gamerPrompt = `
-    Your name is guideX.You are a tour guide for travellers (users).
+    Your name is rambleX.You are a tour guide for travellers (users).
     Your Purpose:
     Video Gamer
 

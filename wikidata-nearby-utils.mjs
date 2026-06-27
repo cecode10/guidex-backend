@@ -25,7 +25,7 @@ export const SPARQL_FETCH_LIMIT = 100;
 export const WIKIDATA_SPARQL_TIMEOUT_MS = 20_000;
 
 const WIKI_HEADERS = {
-    "User-Agent": "guideX-mobile (https://guidex.app)",
+    "User-Agent": "rambleX-mobile (https://ramblex.app)",
     Accept: "application/sparql-results+json",
 };
 

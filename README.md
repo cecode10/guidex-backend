@@ -1,14 +1,14 @@
-# guidex-backend
+# ramblex-backend
 
 ## Authentication
 
 All Lambda handlers require a valid Firebase ID token in the `Authorization: Bearer <token>` header. The mobile app must obtain the token via `FirebaseAuth.instance.currentUser?.getIdToken()` and include it in every request. Invalid or missing tokens return `401 Unauthorized` with `{"error":"unauthorized"}`.
 
 ## Lambda handlers
-- `lambdas/guidex-text-prompt-lambda.mjs` -> `dist/guidex-text-prompt-lambda.js` (`handler`)
-- `lambdas/guidex-image-annotation-lambda.mjs` -> `dist/guidex-image-annotation-lambda.js` (`handler`)
-- `lambdas/guidex-image-recognition-lambda.mjs` -> `dist/guidex-image-recognition-lambda.js` (`handler`)
-- `lambdas/guidex-text-to-speech-lambda.mjs` -> `dist/guidex-text-to-speech-lambda.js` (`handler`)
+- `lambdas/ramblex-text-prompt-lambda.mjs` -> `dist/ramblex-text-prompt-lambda.js` (`handler`)
+- `lambdas/ramblex-image-annotation-lambda.mjs` -> `dist/ramblex-image-annotation-lambda.js` (`handler`)
+- `lambdas/ramblex-image-recognition-lambda.mjs` -> `dist/ramblex-image-recognition-lambda.js` (`handler`)
+- `lambdas/ramblex-text-to-speech-lambda.mjs` -> `dist/ramblex-text-to-speech-lambda.js` (`handler`)
 
 ## Environment
 

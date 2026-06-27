@@ -257,15 +257,15 @@ Rename `lambdas/` to `handlers/` to reflect the platform change.
 
 |---|---|---|
 
-| `lambdas/guidex-text-prompt-lambda.mjs` | `handlers/text-prompt.mjs` | Drop `parseRequestBody`, use `req.body` |
+| `lambdas/ramblex-text-prompt-lambda.mjs` | `handlers/text-prompt.mjs` | Drop `parseRequestBody`, use `req.body` |
 
-| `lambdas/guidex-image-annotation-lambda.mjs` | `handlers/image-annotation.mjs` | Same pattern |
+| `lambdas/ramblex-image-annotation-lambda.mjs` | `handlers/image-annotation.mjs` | Same pattern |
 
-| `lambdas/guidex-image-recognition-lambda.mjs` | `handlers/image-recognition.mjs` | Same pattern |
+| `lambdas/ramblex-image-recognition-lambda.mjs` | `handlers/image-recognition.mjs` | Same pattern |
 
-| `lambdas/guidex-text-to-speech-lambda.mjs` | `handlers/text-to-speech.mjs` | Same pattern |
+| `lambdas/ramblex-text-to-speech-lambda.mjs` | `handlers/text-to-speech.mjs` | Same pattern |
 
-| `lambdas/guidex-delete-account-lambda.mjs` | `handlers/delete-account.mjs` | `deleteFirebaseUser` now uses Admin SDK |
+| `lambdas/ramblex-delete-account-lambda.mjs` | `handlers/delete-account.mjs` | `deleteFirebaseUser` now uses Admin SDK |
 
 ### 3.3 Create entry point [index.mjs](index.mjs)
 
@@ -366,15 +366,15 @@ https://<region>-<project-id>.cloudfunctions.net/textPrompt
 
 | `index.mjs` | **Create** -- entry point exporting all functions |
 
-| `handlers/text-prompt.mjs` | **Create** (replaces `lambdas/guidex-text-prompt-lambda.mjs`) |
+| `handlers/text-prompt.mjs` | **Create** (replaces `lambdas/ramblex-text-prompt-lambda.mjs`) |
 
-| `handlers/image-annotation.mjs` | **Create** (replaces `lambdas/guidex-image-annotation-lambda.mjs`) |
+| `handlers/image-annotation.mjs` | **Create** (replaces `lambdas/ramblex-image-annotation-lambda.mjs`) |
 
-| `handlers/image-recognition.mjs` | **Create** (replaces `lambdas/guidex-image-recognition-lambda.mjs`) |
+| `handlers/image-recognition.mjs` | **Create** (replaces `lambdas/ramblex-image-recognition-lambda.mjs`) |
 
-| `handlers/text-to-speech.mjs` | **Create** (replaces `lambdas/guidex-text-to-speech-lambda.mjs`) |
+| `handlers/text-to-speech.mjs` | **Create** (replaces `lambdas/ramblex-text-to-speech-lambda.mjs`) |
 
-| `handlers/delete-account.mjs` | **Create** (replaces `lambdas/guidex-delete-account-lambda.mjs`) |
+| `handlers/delete-account.mjs` | **Create** (replaces `lambdas/ramblex-delete-account-lambda.mjs`) |
 
 | `auth.mjs` | **Rewrite** -- Firebase Admin SDK |
 

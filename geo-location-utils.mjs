@@ -389,7 +389,7 @@ export const flagFromIsoCode = (iso) => {
 };
 
 const WIKI_HEADERS = {
-    "User-Agent": "guideX-mobile (https://guidex.app)",
+    "User-Agent": "rambleX-mobile (https://ramblex.app)",
     Accept: "application/json",
 };
 

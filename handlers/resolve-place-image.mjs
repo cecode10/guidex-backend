@@ -30,7 +30,7 @@ const UPSTREAM_TIMEOUT_MS = 12000;
 const UPSTREAM_MAX_ATTEMPTS = 3;
 
 const WIKI_HEADERS = {
-    "User-Agent": "guideX-mobile (https://guidex.app)",
+    "User-Agent": "rambleX-mobile (https://ramblex.app)",
     Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
 };
 

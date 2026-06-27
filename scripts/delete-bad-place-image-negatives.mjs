@@ -50,7 +50,7 @@ const PLACE_IMAGES_COLLECTION = "place-images";
 const NEGATIVE_SCHEMA_VERSION = 3;
 const QID_RE = /^Q\d+$/;
 const WIKI_HEADERS = {
-    "User-Agent": "guideX-mobile (https://guidex.app)",
+    "User-Agent": "rambleX-mobile (https://ramblex.app)",
     Accept: "application/json",
 };
 

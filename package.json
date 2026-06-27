@@ -1,5 +1,5 @@
 {
-    "name": "guidex-backend",
+    "name": "ramblex-backend",
     "version": "1.0.0",
     "type": "module",
     "main": "index.mjs",
