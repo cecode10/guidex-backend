@@ -61,7 +61,6 @@ export const analyzeImage = async (image, prompt) => {
             },
         ],
     };
-    // console.log("payload = " + JSON.stringify(payload));
     try {
         const start = Date.now();
         const response = await getClient().responses.create(payload);
@@ -72,13 +71,41 @@ export const analyzeImage = async (image, prompt) => {
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
-}
+};
 
-const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => ({
+const buildPlainTextPayload = (systemPrompt, userPrompt, options = {}) => ({
+    model: model4o,
+    instructions: systemPrompt,
+    input: userPrompt,
+    store: true,
+    ...options,
+});
+
+const buildResearchPayload = (systemPrompt, userPrompt, metadata = {}, options = {}) => ({
     model: model4o,
     instructions: systemPrompt,
     input: userPrompt,
     tools: [{ type: "web_search" }],
+    include: ["web_search_call.action.sources"],
+    store: true,
+    metadata: {
+        agent: "research",
+        step: "1",
+        ...metadata,
+    },
+    ...options,
+});
+
+const buildPersonaPayload = (systemPrompt, userPrompt, metadata = {}, options = {}) => ({
+    model: model4o,
+    instructions: systemPrompt,
+    input: userPrompt,
+    store: true,
+    metadata: {
+        agent: "persona",
+        step: "2",
+        ...metadata,
+    },
     ...options,
 });
 
@@ -95,38 +122,70 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     try {
         const start = Date.now();
         const response = await getClient().responses.create(
-            buildTextPromptPayload(systemPrompt, userPrompt),
+            buildPlainTextPayload(systemPrompt, userPrompt),
         );
         const elapsed = Date.now() - start;
-        console.log(`[answerToPrompt] OpenAI API responded in ${elapsed}ms`);
+        console.log(`[answerToPrompt] response_id=${response.id} elapsed=${elapsed}ms`);
+        console.log(`[answerToPrompt] output=${response.output_text}`);
         return response.output_text;
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
-}
+};
 
-export const answerToPromptStreaming = async function* (systemPrompt, userPrompt) {
+export const researchFromWebSearch = async (systemPrompt, userPrompt, metadata = {}) => {
     if (!systemPrompt?.trim()) {
         throw new Error("system prompt is required");
     }
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
-    console.log("systemPrompt = " + systemPrompt);
-    console.log("userPrompt = " + userPrompt);
-    console.log("using model (streaming) = " + model4o);
+    console.log("[researchFromWebSearch] systemPrompt = " + systemPrompt);
+    console.log("[researchFromWebSearch] userPrompt = " + userPrompt);
+    console.log("[researchFromWebSearch] using model = " + model4o);
+    try {
+        const start = Date.now();
+        const response = await getClient().responses.create(
+            buildResearchPayload(systemPrompt, userPrompt, metadata),
+        );
+        const elapsed = Date.now() - start;
+        console.log(`[researchFromWebSearch] response_id=${response.id} elapsed=${elapsed}ms`);
+        console.log(`[researchFromWebSearch] output=${response.output_text}`);
+        return response.output_text;
+    } catch (error) {
+        throw normalizeOpenAiError(error);
+    }
+};
+
+export const personaRetellStreaming = async function* (systemPrompt, userPrompt, metadata = {}) {
+    if (!systemPrompt?.trim()) {
+        throw new Error("system prompt is required");
+    }
+    if (!userPrompt?.trim()) {
+        throw new Error("user prompt is required");
+    }
+    console.log("[personaRetellStreaming] systemPrompt = " + systemPrompt);
+    console.log("[personaRetellStreaming] userPrompt = " + userPrompt);
+    console.log("[personaRetellStreaming] using model (streaming) = " + model4o);
     try {
         const start = Date.now();
         const stream = await getClient().responses.create(
-            buildTextPromptPayload(systemPrompt, userPrompt, { stream: true }),
+            buildPersonaPayload(systemPrompt, userPrompt, metadata, { stream: true }),
         );
+        let output = "";
+        let responseId;
         for await (const event of stream) {
+            if (event.type === "response.created" && event.response?.id) {
+                responseId = event.response.id;
+            }
             if (event.type === "response.output_text.delta" && event.delta) {
+                output += event.delta;
                 yield event.delta;
             }
         }
         const elapsed = Date.now() - start;
-        console.log(`[answerToPromptStreaming] OpenAI stream completed in ${elapsed}ms`);
+        console.log(`[personaRetellStreaming] response_id=${responseId || "(unknown)"} elapsed=${elapsed}ms`);
+        console.log(`[personaRetellStreaming] output=${output}`);
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
@@ -165,4 +224,4 @@ export const textToSpeech = async (inputText, options = {}) => {
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
-}
+};

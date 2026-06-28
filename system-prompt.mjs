@@ -5,7 +5,8 @@ import {
     catPrompt,
     summaryPrompt,
     gamerPrompt,
-    imageRecognitionPrompt
+    imageRecognitionPrompt,
+    researchPrompt,
 } from "./prompts.mjs";
 
 export const personasToPromptMapping = {
@@ -42,4 +43,33 @@ export const getImageRecognitionPrompt = (language) => {
 
 export const getSummaryPrompt = (language) => {
     return setPreferedLanguage(summaryPrompt, language);
-}
+};
+
+export const getResearchPrompt = (language) => {
+    return setPreferedLanguage(researchPrompt, language);
+};
+
+export const buildConversationBlock = (conversation) => `
+    Conversation History:
+    - Consider the below conversation history when answering the users question:
+
+    <BEGIN_OF_CONVERSATION_HISTORY>
+    ${conversation?.trim() || "(no prior messages)"}
+    <END_OF_CONVERSATION_HISTORY>`;
+
+export const buildResearchSystemPrompt = (language, conversation) => {
+    const prompt = getResearchPrompt(language);
+    return `${prompt}${buildConversationBlock(conversation)}`;
+};
+
+export const buildPersonaSystemPrompt = (personaKey, language, conversation) => {
+    const systemPrompt = getSystemPrompt(personaKey, language);
+    return `${systemPrompt}${buildConversationBlock(conversation)}`;
+};
+
+export const buildPersonaUserInput = (researchSummary, userQuestion) => `Research summary (use only these facts, do not add new information):
+---
+${researchSummary}
+---
+
+User question: ${userQuestion}`;

@@ -1,9 +1,8 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { answerToPromptStreaming } from "../open-ai-service.mjs";
+import { streamTwoAgentResponse } from "../agent-pipeline.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
-import { getSystemPrompt } from "../system-prompt.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
@@ -30,8 +29,7 @@ export const imageAnnotation = onRequest(
             const topic = payload.input.trim();
             const persona = payload.persona.trim();
             const language = payload.language.trim();
-            const userPrompt = `Tell me about ${topic}$`;
-            const systemPrompt = getSystemPrompt(persona, language);
+            const userQuestion = `Tell me about ${topic}`;
 
             res.writeHead(200, {
                 "Content-Type": "text/event-stream",
@@ -39,7 +37,13 @@ export const imageAnnotation = onRequest(
                 "Connection": "keep-alive",
             });
 
-            const tokenStream = answerToPromptStreaming(systemPrompt, userPrompt);
+            const tokenStream = streamTwoAgentResponse({
+                userQuestion,
+                persona,
+                language,
+                conversation: payload.conversation,
+                pipeline: FUNCTION_NAME,
+            });
             for await (const token of tokenStream) {
                 sendSseEvent(res, { token });
             }

@@ -1,26 +1,14 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { answerToPrompt, answerToPromptStreaming } from "../open-ai-service.mjs";
-import { getSystemPrompt, getSummaryPrompt } from "../system-prompt.mjs";
+import { answerToPrompt } from "../open-ai-service.mjs";
+import { getSummaryPrompt } from "../system-prompt.mjs";
+import { streamTwoAgentResponse } from "../agent-pipeline.mjs";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
 const FUNCTION_NAME = "textPrompt";
-
-const buildSystemPromptWithChatHistory = (systemPrompt, conversation) => {
-    if (conversation) {
-        return `${systemPrompt}
-        Conversation History:
-        - Consider the below conversation history when answering the users question:
-
-        <BEGIN_OF_CONVERSATION_HISTORY>
-        ${conversation}
-        <END_OF_CONVERSATION_HISTORY>`;
-    }
-    return systemPrompt;
-};
 
 const sendSseEvent = (res, data, event) => {
     if (event) {
@@ -43,8 +31,6 @@ export const textPrompt = onRequest(
             const topic = payload.input.trim();
             const persona = payload.persona.trim();
             const language = payload.language.trim();
-            const systemPrompt = getSystemPrompt(persona);
-            const systemPromptWithChatHistory = buildSystemPromptWithChatHistory(systemPrompt, payload.conversation);
 
             res.writeHead(200, {
                 "Content-Type": "text/event-stream",
@@ -60,7 +46,13 @@ export const textPrompt = onRequest(
                 sendSseEvent(res, { response_summary: responseSummary }, "summary");
             }
 
-            const tokenStream = answerToPromptStreaming(systemPromptWithChatHistory, topic);
+            const tokenStream = streamTwoAgentResponse({
+                userQuestion: topic,
+                persona,
+                language,
+                conversation: payload.conversation,
+                pipeline: FUNCTION_NAME,
+            });
             for await (const token of tokenStream) {
                 sendSseEvent(res, { token });
             }
