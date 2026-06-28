@@ -7,6 +7,7 @@ import { geocodingLanguageFromAppLanguage } from "../geocode-anchor-utils.mjs";
 import {
     logExternalApiRequest,
     logExternalApiResponse,
+    logExternalApiCacheHit,
 } from "../external-api-debug.mjs";
 import {
     COLLECTION,
@@ -143,7 +144,14 @@ export const reconcileCachedPopularPlaces = async (
             .map((place) => place.order)
             .filter((order) => Number.isInteger(order)),
     );
-    if (missingQidOrders.size === 0) return places;
+    if (missingQidOrders.size === 0) {
+        logExternalApiCacheHit("geo-location-popular-enrichment", {
+            key: geoLocationKey,
+            detail: `places=${places.length} all wikidataIds present`,
+            skippedProviders: ["wikidata", "wikipedia", "wikimedia"],
+        });
+        return places;
+    }
 
     let updated = places.map((place) => ({ ...place }));
     const toEnrich = updated.filter((place) => missingQidOrders.has(place.order));
@@ -316,7 +324,26 @@ export const resolveGeoLocationPopular = onRequest(
                         });
                     }
                     const elapsed = Date.now() - start;
-                    console.log(`[${FUNCTION_NAME}] cache hit ${key} in ${elapsed}ms`);
+                    logExternalApiCacheHit("geo-location-popular", {
+                        key,
+                        detail:
+                            `places=${places.length}` +
+                            (searchQuery ? ` searchQuery="${searchQuery}"` : "") +
+                            ` elapsedMs=${elapsed}`,
+                        skippedProviders: searchQuery
+                            ? ["wikidata-sparql"]
+                            : ["wikidata", "wikipedia", "wikimedia"],
+                    });
+                    if (searchQuery) {
+                        console.log(
+                            `[${FUNCTION_NAME}] cache hit ${key}: skipped wikidata SPARQL; ` +
+                                "search anchor enrichment may still call wikidata/wikipedia API",
+                        );
+                    } else {
+                        console.log(
+                            `[${FUNCTION_NAME}] cache hit ${key} in ${elapsed}ms (no wikidata/wikipedia call)`,
+                        );
+                    }
                     return res.status(200).json({
                         key,
                         label,

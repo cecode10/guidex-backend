@@ -12,6 +12,7 @@ import {
 import {
     logExternalApiRequestUrl,
     logExternalApiResponseUrl,
+    logExternalApiCacheHit,
 } from "../external-api-debug.mjs";
 
 const FUNCTION_NAME = "resolvePlaceImage";
@@ -540,6 +541,77 @@ const patchExplorePopularPlace = async (db, payload, patch) => {
 };
 
 /**
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {string} placeKey
+ * @param {string | null} resolvedWikidataId
+ * @param {number} now
+ * @param {typeof fetch} fetchImpl
+ * @returns {Promise<null | {
+ *   wikidataId: string | null,
+ *   storageUrl?: string | null,
+ *   imageStatus: "ready" | "notFound",
+ *   source?: string | null,
+ *   attribution?: unknown,
+ *   officialExpiresAt?: import("firebase-admin/firestore").Timestamp,
+ *   fromCache: true,
+ *   cacheKind: string,
+ * }>}
+ */
+const readPlaceImageCacheEntry = async (
+    db,
+    placeKey,
+    resolvedWikidataId,
+    now,
+    fetchImpl,
+) => {
+    const existing = await db.collection(COLLECTION).doc(placeKey).get();
+    if (!existing.exists) return null;
+
+    const data = existing.data();
+    if (data.status === "ready" && data.storageUrl) {
+        logExternalApiCacheHit("place-image-ready", {
+            key: placeKey,
+            detail: `source=${data.source ?? "unknown"}`,
+            skippedProviders: ["wikidata", "wikipedia", "wikimedia"],
+        });
+        return {
+            wikidataId: data.wikidataId || resolvedWikidataId,
+            storageUrl: data.storageUrl,
+            imageStatus: "ready",
+            source: data.source ?? null,
+            attribution: data.attribution ?? null,
+            fromCache: true,
+            cacheKind: "ready",
+        };
+    }
+
+    if (data.status === "notFound" && isFreshNegative(data, now)) {
+        const qidForRetry = data.wikidataId || resolvedWikidataId;
+        const mayRetry = await negativeMayHaveResolvableImage(qidForRetry, fetchImpl);
+        if (!mayRetry) {
+            logExternalApiCacheHit("place-image-negative", {
+                key: placeKey,
+                detail: `reason=${data.reason ?? "hard"}`,
+                skippedProviders: ["wikidata", "wikipedia", "wikimedia"],
+            });
+            return {
+                wikidataId: data.wikidataId || resolvedWikidataId,
+                imageStatus: "notFound",
+                officialExpiresAt: data.officialExpiresAt,
+                fromCache: true,
+                cacheKind: "negative",
+            };
+        }
+        console.log(
+            `[${FUNCTION_NAME}] cache stale-negative key=${placeKey} ` +
+                "checking wikidata P18 before upstream cascade",
+        );
+    }
+
+    return null;
+};
+
+/**
  * Resolves a place cover image into `place-images/{placeKey}` when needed.
  * Reuses an existing ready/fresh-negative cache entry without re-fetching upstream.
  *
@@ -565,41 +637,50 @@ export const ensurePlaceImageInFirestore = async (
     { wikidataId, name, hintImageUrl, wikipediaUrl },
     fetchImpl = fetch,
 ) => {
-    const authoritativeWikidataId = await resolveAuthoritativeWikidataId(
-        wikidataId,
-        name,
-        fetchImpl,
-    );
-    const resolvedWikidataId = authoritativeWikidataId || wikidataId || null;
-    const placeKey = placeKeyFor(resolvedWikidataId, name);
-
-    const docRef = db.collection(COLLECTION).doc(placeKey);
+    const nameTrim = String(name).trim();
+    const qidTrim = String(wikidataId || "").trim();
     const now = Date.now();
 
-    const existing = await docRef.get();
-    if (existing.exists) {
-        const data = existing.data();
-        if (data.status === "ready" && data.storageUrl) {
-            return {
-                wikidataId: data.wikidataId || resolvedWikidataId,
-                storageUrl: data.storageUrl,
-                imageStatus: "ready",
-                source: data.source ?? null,
-                attribution: data.attribution ?? null,
-            };
-        }
-        if (data.status === "notFound" && isFreshNegative(data, now)) {
-            const qidForRetry = data.wikidataId || resolvedWikidataId;
-            const mayRetry = await negativeMayHaveResolvableImage(qidForRetry, fetchImpl);
-            if (!mayRetry) {
-                return {
-                    wikidataId: data.wikidataId || resolvedWikidataId,
-                    imageStatus: "notFound",
-                    officialExpiresAt: data.officialExpiresAt,
-                };
-            }
-        }
+    const cacheKeysToTry = [];
+    if (/^Q\d+$/.test(qidTrim)) {
+        cacheKeysToTry.push(placeKeyFor(qidTrim, nameTrim));
     }
+    const nameKey = placeKeyFor(null, nameTrim);
+    if (!cacheKeysToTry.includes(nameKey)) {
+        cacheKeysToTry.push(nameKey);
+    }
+
+    for (const cacheKey of cacheKeysToTry) {
+        const cached = await readPlaceImageCacheEntry(
+            db,
+            cacheKey,
+            /^Q\d+$/.test(qidTrim) ? qidTrim : null,
+            now,
+            fetchImpl,
+        );
+        if (cached) return cached;
+    }
+
+    const authoritativeWikidataId = await resolveAuthoritativeWikidataId(
+        qidTrim,
+        nameTrim,
+        fetchImpl,
+    );
+    const resolvedWikidataId = authoritativeWikidataId || qidTrim || null;
+    const placeKey = placeKeyFor(resolvedWikidataId, nameTrim);
+
+    if (!cacheKeysToTry.includes(placeKey)) {
+        const cached = await readPlaceImageCacheEntry(
+            db,
+            placeKey,
+            resolvedWikidataId,
+            now,
+            fetchImpl,
+        );
+        if (cached) return cached;
+    }
+
+    const docRef = db.collection(COLLECTION).doc(placeKey);
 
     let candidate = await resolveImageCandidate({
         wikidataId: resolvedWikidataId,
@@ -750,7 +831,12 @@ export const resolvePlaceImage = onRequest(
 
             const elapsed = Date.now() - start;
             if (result.imageStatus === "ready") {
-                if (result.source) {
+                if (result.fromCache) {
+                    console.log(
+                        `[${FUNCTION_NAME}] served from cache kind=${result.cacheKind} ` +
+                            `${placeKeyFor(result.wikidataId, name)} in ${elapsed}ms`,
+                    );
+                } else if (result.source) {
                     console.log(
                         `[${FUNCTION_NAME}] resolved ${placeKeyFor(result.wikidataId, name)} (${result.source}) in ${elapsed}ms`,
                     );
@@ -761,7 +847,16 @@ export const resolvePlaceImage = onRequest(
                     storageUrl: result.storageUrl,
                     attribution: result.attribution ?? null,
                     wikidataId: result.wikidataId,
+                    cached: result.fromCache === true,
+                    cacheKind: result.cacheKind ?? null,
                 });
+            }
+
+            if (result.fromCache) {
+                console.log(
+                    `[${FUNCTION_NAME}] served negative from cache kind=${result.cacheKind} ` +
+                        `${placeKeyFor(result.wikidataId, name)} in ${elapsed}ms`,
+                );
             }
 
             return res.status(200).json({
@@ -769,6 +864,8 @@ export const resolvePlaceImage = onRequest(
                 reason: result.reason ?? "hard",
                 officialExpiresAt: result.officialExpiresAt?.toMillis?.() ?? null,
                 wikidataId: result.wikidataId,
+                cached: result.fromCache === true,
+                cacheKind: result.cacheKind ?? null,
             });
         } catch (error) {
             const elapsed = Date.now() - start;
