@@ -20,7 +20,7 @@ export const deleteAccount = onRequest({ cors: true, region: "europe-west3" }, a
             throw err;
         }
 
-        const result = await deleteFirebaseUser(payload.uid);
+        const result = await deleteFirebaseUser(payload.uid, { email: decoded.email });
         const elapsed = Date.now() - start;
         console.log(
             `[${FUNCTION_NAME}] request completed in ${elapsed}ms status=200 followingRemoved=%d followersRemoved=%d`,

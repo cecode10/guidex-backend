@@ -47,7 +47,11 @@ for (const doc of snapshot.docs) {
         console.log("[dry-run] would clean up users/%s", doc.id);
     } else {
         await removeUserFromFollowGraph(doc.id);
-        await tombstoneUserProfile(doc.id);
+        const deletedEmail =
+            typeof data.email === "string" && data.email.trim()
+                ? data.email.trim().toLowerCase()
+                : null;
+        await tombstoneUserProfile(doc.id, deletedEmail);
         console.log("cleaned up users/%s", doc.id);
     }
     tombstoned += 1;

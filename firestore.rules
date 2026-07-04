@@ -140,6 +140,11 @@ service cloud.firestore {
       }
     }
 
+    // Support-only audit trail for deleted accounts (written by Admin SDK).
+    match /accountDeletions/{uid} {
+      allow read, write: if false;
+    }
+
     // Customer Feedback Collection
     match /customer-feedback/{feedbackId} {
       // Anyone logged in can submit feedback
