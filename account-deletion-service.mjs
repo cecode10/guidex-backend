@@ -35,7 +35,7 @@ const deleteDocumentsInQuery = async (db, query) => {
  * Removes all following/follower edges for [uid].
  *
  * @param {string} uid
- * @returns {Promise<{ followingRemoved: number, followersRemoved: number }>}
+ * @returns {Promise<{ followingRemoved: number, followersRemoved: number, fcmTokensRemoved: number }>}
  */
 export const removeUserFromFollowGraph = async (uid) => {
     const db = getFirestore();
@@ -50,7 +50,12 @@ export const removeUserFromFollowGraph = async (uid) => {
         db.collectionGroup("friends").where("friendId", "==", uid),
     );
 
-    return { followingRemoved, followersRemoved };
+    const fcmTokensRemoved = await deleteDocumentsInQuery(
+        db,
+        db.collection("users").doc(uid).collection("fcmTokens"),
+    );
+
+    return { followingRemoved, followersRemoved, fcmTokensRemoved };
 };
 
 /**
@@ -86,7 +91,7 @@ export const tombstoneUserProfile = async (uid) => {
  * 3. Delete Firebase Auth user
  *
  * @param {string} uid
- * @returns {Promise<{ deleted: true, followingRemoved: number, followersRemoved: number }>}
+ * @returns {Promise<{ deleted: true, followingRemoved: number, followersRemoved: number, fcmTokensRemoved: number }>}
  */
 export const deleteUserAccount = async (uid) => {
     if (!uid || typeof uid !== "string") {
@@ -96,18 +101,19 @@ export const deleteUserAccount = async (uid) => {
     }
 
     try {
-        const { followingRemoved, followersRemoved } = await removeUserFromFollowGraph(uid);
+        const { followingRemoved, followersRemoved, fcmTokensRemoved } = await removeUserFromFollowGraph(uid);
         await tombstoneUserProfile(uid);
         await getAuth().deleteUser(uid);
 
         console.log(
-            "account-deletion: uid=%s followingRemoved=%d followersRemoved=%d",
+            "account-deletion: uid=%s followingRemoved=%d followersRemoved=%d fcmTokensRemoved=%d",
             uid,
             followingRemoved,
             followersRemoved,
+            fcmTokensRemoved,
         );
 
-        return { deleted: true, followingRemoved, followersRemoved };
+        return { deleted: true, followingRemoved, followersRemoved, fcmTokensRemoved };
     } catch (deleteError) {
         console.error(
             "account-deletion: failed uid=%s error=%s",

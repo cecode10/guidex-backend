@@ -63,6 +63,15 @@ service cloud.firestore {
         allow write: if isSignedIn() && request.auth.uid == userId;
       }
 
+      // FCM device tokens for push notifications (one doc per device).
+      match /fcmTokens/{tokenId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create, update: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.token is string;
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
       // Checkmarks check-ins
       match /checkins/{checkInId} {
         allow read: if isSignedIn();

@@ -14,4 +14,7 @@ export { resolveGeoLocationPopular } from "./handlers/resolve-geo-location-popul
 export { resolveNearbyPlaces } from "./handlers/resolve-nearby-places.mjs";
 export { resolveGlobalPlacesSearch } from "./handlers/resolve-global-places-search.mjs";
 export { resolvePlaceCity } from "./handlers/resolve-place-city.mjs";
+export { onCheckinLikeCreated } from "./handlers/on-checkin-like-created.mjs";
+export { onCheckinCreated } from "./handlers/on-checkin-created.mjs";
+export { onFollowerAdded } from "./handlers/on-follower-added.mjs";
 
