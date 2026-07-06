@@ -10,11 +10,10 @@ export { deleteAccount } from "./handlers/delete-account.mjs";
 export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
 export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
 export { resolveSearchAnchor } from "./handlers/resolve-search-anchor.mjs";
-export { resolveGeoLocationPopular } from "./handlers/resolve-geo-location-popular.mjs";
+export { resolveNearMePopular } from "./handlers/resolve-near-me-popular.mjs";
+export { resolveGlobalSearchPopular } from "./handlers/resolve-global-search-popular.mjs";
 export { resolveNearbyPlaces } from "./handlers/resolve-nearby-places.mjs";
-export { resolveGlobalPlacesSearch } from "./handlers/resolve-global-places-search.mjs";
 export { resolvePlaceCity } from "./handlers/resolve-place-city.mjs";
 export { onCheckinLikeCreated } from "./handlers/on-checkin-like-created.mjs";
 export { onCheckinCreated } from "./handlers/on-checkin-created.mjs";
 export { onFollowerAdded } from "./handlers/on-follower-added.mjs";
-

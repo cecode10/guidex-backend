@@ -1,20 +1,15 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
 import {
     POPULAR_SEARCH_RADIUS_FALLBACK_KM,
-    geocodingLanguageFromAppLanguage,
     isValidPopularSearchRadiusKm,
     normalizePopularSearchRadiusKm,
     popularSearchRadiusKmFromGeocodeTypes,
-} from "../geocode-anchor-utils.mjs";
+} from "./geocode-anchor-utils.mjs";
 import {
     logExternalApiRequest,
     logExternalApiResponse,
     logExternalApiCacheHit,
-} from "../external-api-debug.mjs";
+} from "./external-api-debug.mjs";
 import {
     COLLECTION,
     MAX_NEARBY_RESULTS,
@@ -33,21 +28,19 @@ import {
     patchPopularPlaceWikidataId,
     popularPlaceDocFromPlace,
     popularPlaceFromDoc,
-} from "../geo-location-utils.mjs";
+} from "./geo-location-utils.mjs";
 import {
     NEARBY_RADIUS_KM,
     fetchWikidataNearbyPopularPlaces,
-} from "../wikidata-nearby-utils.mjs";
+} from "./wikidata-nearby-utils.mjs";
 import {
     TransientUpstreamError,
     ensurePlaceImageInFirestore,
     isWikimediaImageUrl,
-} from "./resolve-place-image.mjs";
-import { fetchGoogleGeocode } from "./resolve-search-anchor.mjs";
+} from "./handlers/resolve-place-image.mjs";
+import { fetchGoogleGeocode } from "./handlers/resolve-search-anchor.mjs";
 
-const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
-const FUNCTION_NAME = "resolveGeoLocationPopular";
-const GOOGLE_TIMEOUT_MS = 12_000;
+export const GOOGLE_REVERSE_GEOCODE_TIMEOUT_MS = 12_000;
 
 /**
  * @param {number} lat
@@ -63,7 +56,7 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
     url.searchParams.set("language", language);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), GOOGLE_REVERSE_GEOCODE_TIMEOUT_MS);
     try {
         logExternalApiRequest(
             "google-geocoding",
@@ -91,8 +84,6 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
 };
 
 /**
- * Derives the Wikidata search radius from the user's free-form Explore query.
- *
  * @param {string} searchQuery
  * @param {string} language
  * @param {string} apiKey
@@ -118,39 +109,10 @@ export const derivePopularSearchRadiusKm = async (
         return popularSearchRadiusKmFromGeocodeTypes(types);
     } catch (error) {
         console.warn(
-            `[${FUNCTION_NAME}] search radius fallback for "${query}": ${error?.message || error}`,
+            `[explore-popular] search radius fallback for "${query}": ${error?.message || error}`,
         );
         return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
     }
-};
-
-/**
- * Resolves Explore search radius from a trusted client anchor when present,
- * otherwise geocodes the query on the server.
- *
- * @param {string} searchQuery
- * @param {{
- *   language: string,
- *   apiKey: string,
- *   radiusKm?: unknown,
- * }} options
- * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
- * @returns {Promise<number>}
- */
-export const resolvePopularSearchRadiusKm = async (
-    searchQuery,
-    { language, apiKey, radiusKm: clientRadiusKm },
-    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
-) => {
-    if (isValidPopularSearchRadiusKm(clientRadiusKm)) {
-        return normalizePopularSearchRadiusKm(clientRadiusKm);
-    }
-    return derivePopularSearchRadiusKm(
-        searchQuery,
-        language,
-        apiKey,
-        fetchGoogleGeocodeImpl,
-    );
 };
 
 /**
@@ -195,9 +157,6 @@ export const writePopularAroundList = async (docRef, places, now) => {
 };
 
 /**
- * Backfills missing Wikidata IDs and images for cached `popularAroundList` rows
- * that were stored before enrichment ran.
- *
  * @param {import("firebase-admin/firestore").Firestore} db
  * @param {string} geoLocationKey
  * @param {Array<Record<string, unknown>>} places
@@ -308,7 +267,7 @@ export const reconcileCachedPopularPlaces = async (
         } catch (error) {
             if (error instanceof TransientUpstreamError) {
                 console.warn(
-                    `[${FUNCTION_NAME}] reconcile image transient for order ${place.order}: ${error.message}`,
+                    `[explore-popular] reconcile image transient for order ${place.order}: ${error.message}`,
                 );
                 continue;
             }
@@ -320,181 +279,185 @@ export const reconcileCachedPopularPlaces = async (
 };
 
 /**
- * Cloud Function: keys `geo-location/{lat}_{lng}` from rounded coordinates,
- * reverse-geocodes via Google for display metadata, looks up Firestore, and
- * on a miss loads Wikidata nearby POIs into `popularAroundList/*`.
+ * Resolves Explore search radius from geocode types on the server.
+ *
+ * @param {string} searchQuery
+ * @param {string} language
+ * @param {string} apiKey
+ * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
+ * @returns {Promise<number>}
  */
-export const resolveGeoLocationPopular = onRequest(
-    {
-        cors: true,
-        region: "europe-west3",
-        timeoutSeconds: 60,
-        memory: "512MiB",
-        secrets: [googleMapsApiKey],
-    },
-    async (req, res) => {
-        const start = Date.now();
-        try {
-            await requireAuth(req);
-            const payload = req.body || {};
-            validateMandatoryFields(payload, ["lat", "lng"]);
+export const resolvePopularSearchRadiusKm = async (
+    searchQuery,
+    { language, apiKey, radiusKm: clientRadiusKm },
+    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
+) => {
+    if (isValidPopularSearchRadiusKm(clientRadiusKm)) {
+        return normalizePopularSearchRadiusKm(clientRadiusKm);
+    }
+    return derivePopularSearchRadiusKm(
+        searchQuery,
+        language,
+        apiKey,
+        fetchGoogleGeocodeImpl,
+    );
+};
 
-            const lat = Number(payload.lat);
-            const lng = Number(payload.lng);
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-                const err = new Error("lat and lng must be finite numbers");
-                err.statusCode = 400;
-                throw err;
-            }
+/**
+ * @param {Record<string, unknown>} best
+ * @returns {{
+ *   label: string,
+ *   city: string,
+ *   countryCode: string | null,
+ *   countryFlag: string,
+ *   resolvedLat: number,
+ *   resolvedLng: number,
+ * }}
+ */
+export const geoMetadataFromGeocodeResult = (best, fallbackLat, fallbackLng) => {
+    const label = deriveGeoLocationLabel(best);
+    const geometry = /** @type {{ location?: { lat?: number, lng?: number } }} */ (
+        best.geometry ?? {}
+    );
+    const resolvedLat = geometry.location?.lat ?? fallbackLat;
+    const resolvedLng = geometry.location?.lng ?? fallbackLng;
+    const city =
+        label.split(",").map((part) => part.trim()).filter(Boolean)[0] ?? label;
+    const countryCode = countryCodeFromGeocodeResult(best);
+    const countryFlag = flagFromIsoCode(countryCode ?? "");
+    return { label, city, countryCode, countryFlag, resolvedLat, resolvedLng };
+};
 
-            const forceRefresh = payload.forceRefresh === true;
-            const searchQuery = String(payload.searchQuery || "").trim();
-            const language = geocodingLanguageFromAppLanguage(payload.language);
-            const apiKey = googleMapsApiKey.value();
+/**
+ * Loads or resolves popular places for a geo-location cache key.
+ *
+ * @param {{
+ *   functionName: string,
+ *   key: string,
+ *   lat: number,
+ *   lng: number,
+ *   radiusKm: number,
+ *   searchQuery?: string,
+ *   label: string,
+ *   city: string,
+ *   countryCode?: string | null,
+ *   countryFlag?: string,
+ *   resolvedLat: number,
+ *   resolvedLng: number,
+ *   forceRefresh?: boolean,
+ *   language: string,
+ *   apiKey: string,
+ * }} options
+ * @returns {Promise<{ key: string, label: string, lat: number, lon: number, places: Array<Record<string, unknown>>, radiusKm: number, cached: boolean }>}
+ */
+export const resolveExplorePopularPlaces = async ({
+    functionName,
+    key,
+    lat,
+    lng,
+    radiusKm,
+    searchQuery = "",
+    label,
+    city,
+    countryCode = null,
+    countryFlag,
+    resolvedLat,
+    resolvedLng,
+    forceRefresh = false,
+    language,
+    apiKey,
+}) => {
+    const db = getFirestore();
+    const docRef = db.collection(COLLECTION).doc(key);
+    const existing = await docRef.get();
+    const trimmedSearchQuery = String(searchQuery || "").trim();
+    const flag = countryFlag ?? flagFromIsoCode(countryCode ?? "");
 
-            const geocode = await fetchGoogleReverseGeocode(lat, lng, language, apiKey);
-            if (geocode.status !== "OK" || !geocode.results?.length) {
-                const err = new Error(`Google reverse geocode failed (${geocode.status})`);
-                err.statusCode = 502;
-                throw err;
-            }
-
-            const radiusKm = searchQuery
-                ? await resolvePopularSearchRadiusKm(searchQuery, {
-                      language,
-                      apiKey,
-                      radiusKm: payload.radiusKm,
-                  })
-                : NEARBY_RADIUS_KM;
-            const key = searchQuery
-                ? geoLocationSearchKeyFromCoords(lat, lng, { searchQuery, radiusKm })
-                : geoLocationKeyFromCoords(lat, lng);
-            if (!key) {
-                const err = new Error("Could not derive geo-location key");
-                err.statusCode = 400;
-                throw err;
-            }
-
-            const best = geocode.results[0];
-            const label = deriveGeoLocationLabel(best);
-
-            const geometry = /** @type {{ location?: { lat?: number, lng?: number } }} */ (
-                best.geometry ?? {}
-            );
-            const resolvedLat = geometry.location?.lat ?? lat;
-            const resolvedLng = geometry.location?.lng ?? lng;
-            const city =
-                label.split(",").map((part) => part.trim()).filter(Boolean)[0] ?? label;
-            const countryCode = countryCodeFromGeocodeResult(best);
-            const countryFlag = flagFromIsoCode(countryCode ?? "");
-
-            const db = getFirestore();
-            const docRef = db.collection(COLLECTION).doc(key);
-            const existing = await docRef.get();
-
-            if (!forceRefresh && existing.exists) {
-                const cachedPlaces = await readPopularAroundList(db, key);
-                if (cachedPlaces.length > 0) {
-                    let places = await reconcileCachedPopularPlaces(db, key, cachedPlaces);
-                    if (searchQuery) {
-                        places = await ensureSearchAnchorInPopularPlaces(places, {
-                            searchQuery,
-                            lat,
-                            lng,
-                            city,
-                            countryCode,
-                            countryFlag,
-                        });
-                    }
-                    const elapsed = Date.now() - start;
-                    logExternalApiCacheHit("geo-location-popular", {
-                        key,
-                        detail:
-                            `places=${places.length}` +
-                            (searchQuery ? ` searchQuery="${searchQuery}"` : "") +
-                            ` radiusKm=${radiusKm}` +
-                            ` elapsedMs=${elapsed}`,
-                        skippedProviders: searchQuery
-                            ? ["wikidata-sparql"]
-                            : ["wikidata", "wikipedia", "wikimedia"],
-                    });
-                    if (searchQuery) {
-                        console.log(
-                            `[${FUNCTION_NAME}] cache hit ${key}: skipped wikidata SPARQL; ` +
-                                "search anchor enrichment may still call wikidata/wikipedia API",
-                        );
-                    } else {
-                        console.log(
-                            `[${FUNCTION_NAME}] cache hit ${key} in ${elapsed}ms (no wikidata/wikipedia call)`,
-                        );
-                    }
-                    return res.status(200).json({
-                        key,
-                        label,
-                        lat: existing.data()?.lat ?? resolvedLat,
-                        lon: existing.data()?.lon ?? resolvedLng,
-                        places,
-                        radiusKm,
-                        cached: true,
-                    });
-                }
-            }
-
-            let places = await fetchWikidataNearbyPopularPlaces(
-                lat,
-                lng,
-                {
-                    city,
-                    countryCode,
-                    countryFlag,
-                    limit: MAX_NEARBY_RESULTS,
-                    radiusKm,
-                },
-            );
-            if (searchQuery) {
+    if (!forceRefresh && existing.exists) {
+        const cachedPlaces = await readPopularAroundList(db, key);
+        if (cachedPlaces.length > 0) {
+            let places = await reconcileCachedPopularPlaces(db, key, cachedPlaces);
+            if (trimmedSearchQuery) {
                 places = await ensureSearchAnchorInPopularPlaces(places, {
-                    searchQuery,
+                    searchQuery: trimmedSearchQuery,
                     lat,
                     lng,
                     city,
                     countryCode,
-                    countryFlag,
+                    countryFlag: flag,
                 });
             }
-            const now = FieldValue.serverTimestamp();
-
-            await docRef.set(
-                {
-                    key,
-                    label,
-                    lat: resolvedLat,
-                    lon: resolvedLng,
-                    mostPopularAround: mostPopularAroundFromPlaces(places),
-                    createdAt: existing.exists ? existing.data()?.createdAt ?? now : now,
-                    updatedAt: now,
-                },
-                { merge: true },
-            );
-            await writePopularAroundList(docRef, places, now);
-
-            const elapsed = Date.now() - start;
-            console.log(`[${FUNCTION_NAME}] resolved ${key} (${places.length} places) in ${elapsed}ms`);
-            return res.status(200).json({
+            logExternalApiCacheHit("geo-location-popular", {
+                key,
+                detail:
+                    `places=${places.length}` +
+                    (trimmedSearchQuery ? ` searchQuery="${trimmedSearchQuery}"` : "") +
+                    ` radiusKm=${radiusKm}`,
+                skippedProviders: trimmedSearchQuery
+                    ? ["wikidata-sparql"]
+                    : ["wikidata", "wikipedia", "wikimedia"],
+            });
+            console.log(`[${functionName}] cache hit ${key} (${places.length} places)`);
+            return {
                 key,
                 label,
-                lat: resolvedLat,
-                lon: resolvedLng,
+                lat: existing.data()?.lat ?? resolvedLat,
+                lon: existing.data()?.lon ?? resolvedLng,
                 places,
                 radiusKm,
-                cached: false,
-            });
-        } catch (error) {
-            const elapsed = Date.now() - start;
-            const statusCode = error?.statusCode || 500;
-            console.error(`[${FUNCTION_NAME}] error after ${elapsed}ms:`, error?.message || error);
-            return res
-                .status(statusCode)
-                .json({ error: statusCode === 401 ? "unauthorized" : error?.message || "failed" });
+                cached: true,
+            };
         }
-    },
-);
+    }
+
+    let places = await fetchWikidataNearbyPopularPlaces(lat, lng, {
+        city,
+        countryCode,
+        countryFlag: flag,
+        limit: MAX_NEARBY_RESULTS,
+        radiusKm,
+    });
+    if (trimmedSearchQuery) {
+        places = await ensureSearchAnchorInPopularPlaces(places, {
+            searchQuery: trimmedSearchQuery,
+            lat,
+            lng,
+            city,
+            countryCode,
+            countryFlag: flag,
+        });
+    }
+
+    const now = FieldValue.serverTimestamp();
+    await docRef.set(
+        {
+            key,
+            label,
+            lat: resolvedLat,
+            lon: resolvedLng,
+            mostPopularAround: mostPopularAroundFromPlaces(places),
+            createdAt: existing.exists ? existing.data()?.createdAt ?? now : now,
+            updatedAt: now,
+        },
+        { merge: true },
+    );
+    await writePopularAroundList(docRef, places, now);
+
+    console.log(`[${functionName}] resolved ${key} (${places.length} places)`);
+    return {
+        key,
+        label,
+        lat: resolvedLat,
+        lon: resolvedLng,
+        places,
+        radiusKm,
+        cached: false,
+    };
+};
+
+export {
+    geoLocationKeyFromCoords,
+    geoLocationSearchKeyFromCoords,
+    NEARBY_RADIUS_KM,
+    fetchGoogleGeocode,
+};

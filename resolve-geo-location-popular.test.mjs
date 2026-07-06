@@ -5,7 +5,7 @@ import {
 import {
     derivePopularSearchRadiusKm,
     resolvePopularSearchRadiusKm,
-} from "./handlers/resolve-geo-location-popular.mjs";
+} from "./explore-popular-core.mjs";
 
 describe("resolvePopularSearchRadiusKm", () => {
     it("uses a trusted client radius without geocoding again", async () => {
