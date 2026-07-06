@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
-import { geocodeAnchorCacheKey } from "./geocode-anchor-utils.mjs";
 import {
     logExternalApiRequestUrl,
     logExternalApiResponseUrl,
@@ -41,19 +40,18 @@ export const geoLocationKeyFromCoords = (
  *
  * @param {number} lat
  * @param {number} lng
- * @param {{ searchQuery?: string, radiusKm?: number, decimals?: number }} [options]
+ * @param {{ radiusKm?: number, decimals?: number }} [options]
  * @returns {string}
  */
 export const geoLocationSearchKeyFromCoords = (
     lat,
     lng,
-    { searchQuery = "", radiusKm = 0, decimals = GEO_LOCATION_COORD_DECIMALS } = {},
+    { radiusKm = 0, decimals = GEO_LOCATION_COORD_DECIMALS } = {},
 ) => {
     const base = geoLocationKeyFromCoords(lat, lng, decimals);
-    const queryKey = geocodeAnchorCacheKey(searchQuery);
     const radius = Number(radiusKm);
-    if (!base || !queryKey || !Number.isFinite(radius) || radius <= 0) return base;
-    return `${base}__search_${queryKey}_r${radius}`;
+    if (!base || !Number.isFinite(radius) || radius <= 0) return "";
+    return `${base}__search_r${radius}`;
 };
 
 /**

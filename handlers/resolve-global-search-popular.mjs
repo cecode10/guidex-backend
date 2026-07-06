@@ -80,7 +80,7 @@ export const resolveGlobalSearchPopular = onRequest(
             const radiusKm = popularSearchRadiusKmFromGeocodeTypes(
                 Array.isArray(best.types) ? best.types.map((value) => String(value)) : [],
             );
-            const key = geoLocationSearchKeyFromCoords(lat, lng, { searchQuery: query, radiusKm });
+            const key = geoLocationSearchKeyFromCoords(lat, lng, { radiusKm });
             if (!key) {
                 const err = new Error("Could not derive geo-location key");
                 err.statusCode = 400;
