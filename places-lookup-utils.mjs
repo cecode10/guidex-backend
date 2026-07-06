@@ -27,6 +27,18 @@ export const SPARQL_INSTANCE_OF_CLAUSE = `
           ?p31Statement ps:P31 ?category .
 `;
 
+/**
+ * Non-POI `instance of` roots excluded from fast Explore search SPARQL.
+ * Uses `wdt:P31/wdt:P279*` so cities, countries, languages, people, and events
+ * are dropped without the expensive VALUES category join.
+ */
+export const SPARQL_EXCLUDED_INSTANCE_ROOTS = `
+    wd:Q515 wd:Q5119 wd:Q1549593 wd:Q1637706 wd:Q1093829 wd:Q486972 wd:Q3957
+    wd:Q532 wd:Q150241 wd:Q15284 wd:Q1048835 wd:Q6256 wd:Q3624078
+    wd:Q347 wd:Q33742 wd:Q1288568 wd:Q17376908 wd:Q3331189
+    wd:Q5 wd:Q43229 wd:Q1656682 wd:Q1190554 wd:Q198 wd:Q27020041
+`;
+
 export const CONTAINER_WIKIDATA_TYPES = new Set([
     "Q515",
     "Q5119",
@@ -47,7 +59,11 @@ export const NEARBY_RADIUS_KM = 3;
 export const CHECKIN_NEARBY_DEFAULT_LIMIT = 50;
 export const GLOBAL_SEARCH_SPARQL_LIMIT = 100;
 export const GLOBAL_SEARCH_RESULT_LIMIT = 40;
+/** Default Wikidata SPARQL timeout for nearby (3 km) Explore queries. */
 export const WIKIDATA_SPARQL_TIMEOUT_MS = 20_000;
+/** Longer timeout for wider global-search radii (e.g. 10 km cities). */
+export const WIKIDATA_SPARQL_SEARCH_TIMEOUT_MS = 45_000;
+export const WIKIDATA_SPARQL_MAX_ATTEMPTS = 2;
 export const NOMINATIM_TIMEOUT_MS = 12_000;
 export const WIKIDATA_API_TIMEOUT_MS = 30_000;
 
@@ -213,6 +229,65 @@ SELECT ?item ?itemLabel ?itemDescription ?image ?location ?dist ?categoryLabel ?
 `.trim();
 };
 
+/** Final row cap for Explore text search (we only show 30). */
+export const EXPLORE_SEARCH_SPARQL_FETCH_LIMIT = 40;
+/** Minimum sitelinks for POI anchors (3 km). */
+export const EXPLORE_SEARCH_POI_MIN_SITELINKS = 10;
+/** Minimum sitelinks for wider city searches (10 km). */
+export const EXPLORE_SEARCH_CITY_MIN_SITELINKS = 15;
+
+/**
+ * @param {number} radiusKm
+ * @returns {number}
+ */
+export const exploreSearchMinSitelinksForRadius = (radiusKm) =>
+    Number(radiusKm) <= NEARBY_RADIUS_KM
+        ? EXPLORE_SEARCH_POI_MIN_SITELINKS
+        : EXPLORE_SEARCH_CITY_MIN_SITELINKS;
+
+/**
+ * Fast Explore text-search SPARQL. Skips the expensive VALUES + `p:P31` join
+ * (that join alone takes 40–50 s in dense cities). Keeps notable POIs via
+ * sitelinks rank and excludes cities, countries, languages, people, and events.
+ *
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} radiusKm
+ * @param {{
+ *   fetchLimit?: number,
+ *   minSitelinks?: number,
+ * }} [options]
+ * @returns {string}
+ */
+export const buildExplorePopularPlacesSparql = (
+    lat,
+    lng,
+    radiusKm,
+    {
+        fetchLimit = EXPLORE_SEARCH_SPARQL_FETCH_LIMIT,
+        minSitelinks = exploreSearchMinSitelinksForRadius(radiusKm),
+    } = {},
+) => `
+SELECT ?item ?itemLabel ?image ?location ?dist ?sitelinks WHERE {
+  SERVICE wikibase:around {
+    ?item wdt:P625 ?location .
+    bd:serviceParam wikibase:center "Point(${lng} ${lat})"^^geo:wktLiteral .
+    bd:serviceParam wikibase:radius "${radiusKm}" .
+    bd:serviceParam wikibase:distance ?dist .
+  }
+  ?item wikibase:sitelinks ?sitelinks .
+  FILTER(?sitelinks >= ${minSitelinks})
+  FILTER NOT EXISTS {
+    ?item wdt:P31/wdt:P279* ?excluded .
+    VALUES ?excluded { ${SPARQL_EXCLUDED_INSTANCE_ROOTS} }
+  }
+  OPTIONAL { ?item wdt:P18 ?image . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+ORDER BY DESC(?sitelinks)
+LIMIT ${fetchLimit}
+`.trim();
+
 /**
  * @param {number} lat
  * @param {number} lng
@@ -260,25 +335,82 @@ SELECT ?item ?itemLabel ?image ?location ?sitelinks ?countryLabel ?countryCode W
 `.trim();
 
 /**
+ * Raised when Wikidata SPARQL fails transiently (timeout / abort) after retries.
+ */
+export class WikidataSparqlTransientError extends Error {
+    /**
+     * @param {string} message
+     * @param {{ extra?: string, attempts?: number, timeoutMs?: number }} [options]
+     */
+    constructor(message, { extra = "", attempts = 1, timeoutMs = 0 } = {}) {
+        super(message);
+        this.name = "WikidataSparqlTransientError";
+        this.statusCode = 504;
+        this.extra = extra;
+        this.attempts = attempts;
+        this.timeoutMs = timeoutMs;
+    }
+}
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export const isWikidataSparqlAbortError = (error) => {
+    if (error?.name === "AbortError") return true;
+    const message = String(error?.message ?? "").toLowerCase();
+    return message.includes("aborted") || message.includes("abort");
+};
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export const isRetryableWikidataSparqlError = (error) => {
+    if (isWikidataSparqlAbortError(error)) return true;
+    const message = String(error?.message ?? "");
+    return /^Wikidata SPARQL HTTP (429|5\d\d)$/.test(message);
+};
+
+/**
+ * @param {number} radiusKm
+ * @returns {number}
+ */
+export const sparqlTimeoutMsForRadius = (radiusKm) =>
+    Number(radiusKm) > NEARBY_RADIUS_KM
+        ? WIKIDATA_SPARQL_SEARCH_TIMEOUT_MS
+        : WIKIDATA_SPARQL_TIMEOUT_MS;
+
+const sparqlRetryBackoffMs = (attemptIndex) => 400 * 2 ** attemptIndex;
+
+/**
  * @param {string} query
- * @param {typeof fetch} [fetchImpl]
+ * @param {typeof fetch} fetchImpl
+ * @param {{ extra?: string, timeoutMs?: number, attempt?: number }} options
  * @returns {Promise<Array<Record<string, unknown>>>}
  */
-export const runWikidataSparql = async (query, fetchImpl = fetch, { extra = "" } = {}) => {
+const runWikidataSparqlOnce = async (
+    query,
+    fetchImpl,
+    { extra = "", timeoutMs = WIKIDATA_SPARQL_TIMEOUT_MS, attempt = 0 } = {},
+) => {
     const url = new URL("https://query.wikidata.org/sparql");
     url.searchParams.set("query", query);
     url.searchParams.set("format", "json");
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), WIKIDATA_SPARQL_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const attemptLabel = attempt > 0 ? ` attempt=${attempt + 1}` : "";
     try {
-        logExternalApiRequestUrl(url.toString(), { extra: extra || "wikidata-sparql" });
+        logExternalApiRequestUrl(url.toString(), {
+            extra: `${extra || "wikidata-sparql"}${attemptLabel} timeoutMs=${timeoutMs}`,
+        });
         const response = await fetchImpl(url, {
             headers: WIKI_SPARQL_HEADERS,
             signal: controller.signal,
         });
         logExternalApiResponseUrl(url.toString(), response.status, {
-            extra: extra || "wikidata-sparql",
+            extra: `${extra || "wikidata-sparql"}${attemptLabel}`,
         });
         if (!response.ok) {
             throw new Error(`Wikidata SPARQL HTTP ${response.status}`);
@@ -287,9 +419,73 @@ export const runWikidataSparql = async (query, fetchImpl = fetch, { extra = "" }
             await response.json()
         );
         return Array.isArray(body?.results?.bindings) ? body.results.bindings : [];
+    } catch (error) {
+        if (isWikidataSparqlAbortError(error)) {
+            console.warn(
+                `[wikidata-sparql] timeout after ${timeoutMs}ms${attemptLabel}` +
+                    (extra ? `: ${extra}` : ""),
+            );
+        }
+        throw error;
     } finally {
         clearTimeout(timer);
     }
+};
+
+/**
+ * @param {string} query
+ * @param {typeof fetch} [fetchImpl]
+ * @param {{
+ *   extra?: string,
+ *   timeoutMs?: number,
+ *   maxAttempts?: number,
+ * }} [options]
+ * @returns {Promise<Array<Record<string, unknown>>>}
+ */
+export const runWikidataSparql = async (
+    query,
+    fetchImpl = fetch,
+    {
+        extra = "",
+        timeoutMs = WIKIDATA_SPARQL_TIMEOUT_MS,
+        maxAttempts = WIKIDATA_SPARQL_MAX_ATTEMPTS,
+    } = {},
+) => {
+    let lastError = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (attempt > 0) {
+            const delayMs = sparqlRetryBackoffMs(attempt - 1);
+            console.warn(
+                `[wikidata-sparql] retrying in ${delayMs}ms` +
+                    (extra ? ` (${extra})` : "") +
+                    ` after: ${lastError?.message || lastError}`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+        try {
+            return await runWikidataSparqlOnce(query, fetchImpl, {
+                extra,
+                timeoutMs,
+                attempt,
+            });
+        } catch (error) {
+            lastError = error;
+            if (!isRetryableWikidataSparqlError(error) || attempt >= maxAttempts - 1) {
+                break;
+            }
+        }
+    }
+
+    console.error(
+        `[wikidata-sparql] exhausted ${maxAttempts} attempt(s) ` +
+            `(timeoutMs=${timeoutMs})` +
+            (extra ? `: ${extra}` : "") +
+            ` — ${lastError?.message || lastError}`,
+    );
+    throw new WikidataSparqlTransientError(
+        lastError?.message || "Wikidata SPARQL timed out",
+        { extra, attempts: maxAttempts, timeoutMs },
+    );
 };
 
 /**

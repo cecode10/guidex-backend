@@ -5,6 +5,7 @@ import { validateMandatoryFields } from "../event-utils.mjs";
 import { geocodingLanguageFromAppLanguage } from "../geocode-anchor-utils.mjs";
 import {
     NEARBY_RADIUS_KM,
+    explorePopularHttpStatus,
     fetchGoogleReverseGeocode,
     geoLocationKeyFromCoords,
     geoMetadataFromGeocodeResult,
@@ -87,8 +88,11 @@ export const resolveNearMePopular = onRequest(
             return res.status(200).json(result);
         } catch (error) {
             const elapsed = Date.now() - start;
-            const statusCode = error?.statusCode || 500;
+            const statusCode = explorePopularHttpStatus(error);
             console.error(`[${FUNCTION_NAME}] error after ${elapsed}ms:`, error?.message || error);
+            if (error?.extra) {
+                console.error(`[${FUNCTION_NAME}] sparql context: ${error.extra}`);
+            }
             return res
                 .status(statusCode)
                 .json({ error: statusCode === 401 ? "unauthorized" : error?.message || "failed" });

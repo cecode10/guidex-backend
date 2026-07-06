@@ -6,8 +6,10 @@ import { geocodingLanguageFromAppLanguage, popularSearchRadiusKmFromGeocodeTypes
 import {
     fetchGoogleGeocode,
     fetchGoogleReverseGeocode,
+    forwardGeocodeHasLocalityMetadata,
     geoLocationSearchKeyFromCoords,
     geoMetadataFromGeocodeResult,
+    explorePopularHttpStatus,
     resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
 
@@ -24,7 +26,7 @@ export const resolveGlobalSearchPopular = onRequest(
     {
         cors: true,
         region: "europe-west3",
-        timeoutSeconds: 60,
+        timeoutSeconds: 120,
         memory: "512MiB",
         secrets: [googleMapsApiKey],
     },
@@ -85,13 +87,21 @@ export const resolveGlobalSearchPopular = onRequest(
                 throw err;
             }
 
-            const reverseGeocode = await fetchGoogleReverseGeocode(lat, lng, language, apiKey);
-            const reverseBest =
-                reverseGeocode.status === "OK" && reverseGeocode.results?.length
+            const reverseGeocode = forwardGeocodeHasLocalityMetadata(best, lat, lng)
+                ? null
+                : await fetchGoogleReverseGeocode(lat, lng, language, apiKey);
+            if (reverseGeocode === null) {
+                console.log(
+                    `[${FUNCTION_NAME}] skip reverse-geocode query="${query}"; ` +
+                        "forward result has locality+country",
+                );
+            }
+            const geocodeBest =
+                reverseGeocode?.status === "OK" && reverseGeocode.results?.length
                     ? reverseGeocode.results[0]
                     : best;
             const { label, city, countryCode, countryFlag, resolvedLat, resolvedLng } =
-                geoMetadataFromGeocodeResult(reverseBest, lat, lng);
+                geoMetadataFromGeocodeResult(geocodeBest, lat, lng);
 
             const result = await resolveExplorePopularPlaces({
                 functionName: FUNCTION_NAME,
@@ -118,8 +128,11 @@ export const resolveGlobalSearchPopular = onRequest(
             return res.status(200).json(result);
         } catch (error) {
             const elapsed = Date.now() - start;
-            const statusCode = error?.statusCode || 500;
+            const statusCode = explorePopularHttpStatus(error);
             console.error(`[${FUNCTION_NAME}] error after ${elapsed}ms:`, error?.message || error);
+            if (error?.extra) {
+                console.error(`[${FUNCTION_NAME}] sparql context: ${error.extra}`);
+            }
             return res
                 .status(statusCode)
                 .json({ error: statusCode === 401 ? "unauthorized" : error?.message || "failed" });

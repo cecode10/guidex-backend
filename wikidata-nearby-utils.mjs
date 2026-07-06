@@ -1,12 +1,16 @@
 import { flagFromIsoCode, MAX_NEARBY_RESULTS } from "./geo-location-utils.mjs";
 import {
     NEARBY_RADIUS_KM,
+    WIKIDATA_SPARQL_MAX_ATTEMPTS,
+    WIKIDATA_SPARQL_SEARCH_TIMEOUT_MS,
+    buildExplorePopularPlacesSparql,
     buildNearbyPlacesSparql,
     classifyPlaceTypeFromCategory,
     mapBindingsToPlaces,
     parseWktPoint,
     readSparqlBinding,
     runWikidataSparql,
+    sparqlTimeoutMsForRadius,
     wikidataIdFromItemUri,
 } from "./places-lookup-utils.mjs";
 
@@ -74,6 +78,15 @@ export const buildNearbyPopularPlacesSparql = (
     });
 
 /**
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} radiusKm
+ * @returns {string}
+ */
+export const buildGlobalSearchPopularPlacesSparql = (lat, lng, radiusKm) =>
+    buildExplorePopularPlacesSparql(lat, lng, radiusKm);
+
+/**
  * Loads curated nearby POIs from Wikidata SPARQL (landmarks, historic sites, museums, …).
  *
  * @param {number} lat
@@ -84,6 +97,7 @@ export const buildNearbyPopularPlacesSparql = (
  *   countryFlag?: string,
  *   limit?: number,
  *   radiusKm?: number,
+ *   globalSearch?: boolean,
  * }} context
  * @param {typeof fetch} [fetchImpl]
  * @returns {Promise<Array<Record<string, unknown>>>}
@@ -97,12 +111,19 @@ export const fetchWikidataNearbyPopularPlaces = async (
         countryFlag,
         limit = MAX_NEARBY_RESULTS,
         radiusKm = NEARBY_RADIUS_KM,
+        globalSearch = false,
     },
     fetchImpl = fetch,
 ) => {
-    const query = buildNearbyPopularPlacesSparql(lat, lng, radiusKm);
+    const query = buildGlobalSearchPopularPlacesSparql(lat, lng, radiusKm);
     const bindings = await runWikidataSparql(query, fetchImpl, {
-        extra: `wikidata-nearby lat=${lat} lng=${lng} radiusKm=${radiusKm}`,
+        extra:
+            `wikidata-nearby lat=${lat} lng=${lng} radiusKm=${radiusKm}` +
+            (globalSearch ? " globalSearch" : ""),
+        timeoutMs: globalSearch
+            ? WIKIDATA_SPARQL_SEARCH_TIMEOUT_MS
+            : sparqlTimeoutMsForRadius(radiusKm),
+        maxAttempts: globalSearch ? 1 : WIKIDATA_SPARQL_MAX_ATTEMPTS,
     });
     return mapWikidataBindingsToPlaces(bindings, {
         lat,

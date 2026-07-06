@@ -329,6 +329,34 @@ export const geoMetadataFromGeocodeResult = (best, fallbackLat, fallbackLng) => 
 };
 
 /**
+ * True when a forward Google geocode result already has city + country metadata,
+ * so a reverse-geocode round trip can be skipped.
+ *
+ * @param {Record<string, unknown>} geocodeResult
+ * @param {number} lat
+ * @param {number} lng
+ * @returns {boolean}
+ */
+export const forwardGeocodeHasLocalityMetadata = (geocodeResult, lat, lng) => {
+    const { city, countryCode } = geoMetadataFromGeocodeResult(geocodeResult, lat, lng);
+    return Boolean(city.trim() && countryCode && String(countryCode).length === 2);
+};
+
+/**
+ * @param {unknown} error
+ * @returns {number}
+ */
+export const explorePopularHttpStatus = (error) => {
+    if (typeof /** @type {{ statusCode?: number }} */ (error)?.statusCode === "number") {
+        return /** @type {{ statusCode: number }} */ (error).statusCode;
+    }
+    if (/** @type {{ name?: string }} */ (error)?.name === "WikidataSparqlTransientError") {
+        return 504;
+    }
+    return 500;
+};
+
+/**
  * Loads or resolves popular places for a geo-location cache key.
  *
  * @param {{
@@ -410,13 +438,33 @@ export const resolveExplorePopularPlaces = async ({
         }
     }
 
-    let places = await fetchWikidataNearbyPopularPlaces(lat, lng, {
-        city,
-        countryCode,
-        countryFlag: flag,
-        limit: MAX_NEARBY_RESULTS,
-        radiusKm,
-    });
+    console.log(
+        `[${functionName}] cache miss ${key} lat=${lat} lng=${lng} radiusKm=${radiusKm}` +
+            (trimmedSearchQuery ? ` searchQuery="${trimmedSearchQuery}"` : ""),
+    );
+
+    let sparqlFailed = false;
+    let places;
+    try {
+        places = await fetchWikidataNearbyPopularPlaces(lat, lng, {
+            city,
+            countryCode,
+            countryFlag: flag,
+            limit: MAX_NEARBY_RESULTS,
+            radiusKm,
+            globalSearch: Boolean(trimmedSearchQuery),
+        });
+    } catch (error) {
+        if (trimmedSearchQuery && error?.name === "WikidataSparqlTransientError") {
+            sparqlFailed = true;
+            places = [];
+            console.warn(
+                `[${functionName}] SPARQL failed for ${key}, falling back to search anchor only`,
+            );
+        } else {
+            throw error;
+        }
+    }
     if (trimmedSearchQuery) {
         places = await ensureSearchAnchorInPopularPlaces(places, {
             searchQuery: trimmedSearchQuery,
@@ -426,6 +474,22 @@ export const resolveExplorePopularPlaces = async ({
             countryCode,
             countryFlag: flag,
         });
+    }
+
+    if (sparqlFailed && places.length <= 1) {
+        console.log(
+            `[${functionName}] anchor-only fallback ${key} (${places.length} places, not cached)`,
+        );
+        return {
+            key,
+            label,
+            lat: resolvedLat,
+            lon: resolvedLng,
+            places,
+            radiusKm,
+            cached: false,
+            partial: true,
+        };
     }
 
     const now = FieldValue.serverTimestamp();
