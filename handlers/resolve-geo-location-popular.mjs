@@ -3,7 +3,13 @@ import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
-import { geocodingLanguageFromAppLanguage } from "../geocode-anchor-utils.mjs";
+import {
+    POPULAR_SEARCH_RADIUS_FALLBACK_KM,
+    geocodingLanguageFromAppLanguage,
+    isValidPopularSearchRadiusKm,
+    normalizePopularSearchRadiusKm,
+    popularSearchRadiusKmFromGeocodeTypes,
+} from "../geocode-anchor-utils.mjs";
 import {
     logExternalApiRequest,
     logExternalApiResponse,
@@ -19,6 +25,7 @@ import {
     ensureSearchAnchorInPopularPlaces,
     flagFromIsoCode,
     geoLocationKeyFromCoords,
+    geoLocationSearchKeyFromCoords,
     isPopularPlaceImageCached,
     isValidWikidataId,
     mostPopularAroundFromPlaces,
@@ -27,12 +34,16 @@ import {
     popularPlaceDocFromPlace,
     popularPlaceFromDoc,
 } from "../geo-location-utils.mjs";
-import { fetchWikidataNearbyPopularPlaces } from "../wikidata-nearby-utils.mjs";
+import {
+    NEARBY_RADIUS_KM,
+    fetchWikidataNearbyPopularPlaces,
+} from "../wikidata-nearby-utils.mjs";
 import {
     TransientUpstreamError,
     ensurePlaceImageInFirestore,
     isWikimediaImageUrl,
 } from "./resolve-place-image.mjs";
+import { fetchGoogleGeocode } from "./resolve-search-anchor.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveGeoLocationPopular";
@@ -77,6 +88,69 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
     } finally {
         clearTimeout(timer);
     }
+};
+
+/**
+ * Derives the Wikidata search radius from the user's free-form Explore query.
+ *
+ * @param {string} searchQuery
+ * @param {string} language
+ * @param {string} apiKey
+ * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
+ * @returns {Promise<number>}
+ */
+export const derivePopularSearchRadiusKm = async (
+    searchQuery,
+    language,
+    apiKey,
+    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
+) => {
+    const query = String(searchQuery || "").trim();
+    if (!query) return NEARBY_RADIUS_KM;
+
+    try {
+        const geocode = await fetchGoogleGeocodeImpl(query, language, apiKey);
+        if (geocode.status !== "OK" || !geocode.results?.length) {
+            return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
+        }
+        const best = geocode.results[0];
+        const types = Array.isArray(best.types) ? best.types.map((value) => String(value)) : [];
+        return popularSearchRadiusKmFromGeocodeTypes(types);
+    } catch (error) {
+        console.warn(
+            `[${FUNCTION_NAME}] search radius fallback for "${query}": ${error?.message || error}`,
+        );
+        return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
+    }
+};
+
+/**
+ * Resolves Explore search radius from a trusted client anchor when present,
+ * otherwise geocodes the query on the server.
+ *
+ * @param {string} searchQuery
+ * @param {{
+ *   language: string,
+ *   apiKey: string,
+ *   radiusKm?: unknown,
+ * }} options
+ * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
+ * @returns {Promise<number>}
+ */
+export const resolvePopularSearchRadiusKm = async (
+    searchQuery,
+    { language, apiKey, radiusKm: clientRadiusKm },
+    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
+) => {
+    if (isValidPopularSearchRadiusKm(clientRadiusKm)) {
+        return normalizePopularSearchRadiusKm(clientRadiusKm);
+    }
+    return derivePopularSearchRadiusKm(
+        searchQuery,
+        language,
+        apiKey,
+        fetchGoogleGeocodeImpl,
+    );
 };
 
 /**
@@ -285,7 +359,16 @@ export const resolveGeoLocationPopular = onRequest(
                 throw err;
             }
 
-            const key = geoLocationKeyFromCoords(lat, lng);
+            const radiusKm = searchQuery
+                ? await resolvePopularSearchRadiusKm(searchQuery, {
+                      language,
+                      apiKey,
+                      radiusKm: payload.radiusKm,
+                  })
+                : NEARBY_RADIUS_KM;
+            const key = searchQuery
+                ? geoLocationSearchKeyFromCoords(lat, lng, { searchQuery, radiusKm })
+                : geoLocationKeyFromCoords(lat, lng);
             if (!key) {
                 const err = new Error("Could not derive geo-location key");
                 err.statusCode = 400;
@@ -329,6 +412,7 @@ export const resolveGeoLocationPopular = onRequest(
                         detail:
                             `places=${places.length}` +
                             (searchQuery ? ` searchQuery="${searchQuery}"` : "") +
+                            ` radiusKm=${radiusKm}` +
                             ` elapsedMs=${elapsed}`,
                         skippedProviders: searchQuery
                             ? ["wikidata-sparql"]
@@ -350,6 +434,7 @@ export const resolveGeoLocationPopular = onRequest(
                         lat: existing.data()?.lat ?? resolvedLat,
                         lon: existing.data()?.lon ?? resolvedLng,
                         places,
+                        radiusKm,
                         cached: true,
                     });
                 }
@@ -363,6 +448,7 @@ export const resolveGeoLocationPopular = onRequest(
                     countryCode,
                     countryFlag,
                     limit: MAX_NEARBY_RESULTS,
+                    radiusKm,
                 },
             );
             if (searchQuery) {
@@ -399,6 +485,7 @@ export const resolveGeoLocationPopular = onRequest(
                 lat: resolvedLat,
                 lon: resolvedLng,
                 places,
+                radiusKm,
                 cached: false,
             });
         } catch (error) {

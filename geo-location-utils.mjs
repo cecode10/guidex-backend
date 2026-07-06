@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
+import { geocodeAnchorCacheKey } from "./geocode-anchor-utils.mjs";
 import {
     logExternalApiRequestUrl,
     logExternalApiResponseUrl,
@@ -31,6 +32,28 @@ export const geoLocationKeyFromCoords = (
     const longitude = Number(lng);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
     return `${latitude.toFixed(decimals)}_${longitude.toFixed(decimals)}`;
+};
+
+/**
+ * Stable Firestore doc id for a free-form Explore search anchored at coords.
+ * Search results can use a wider/narrower Wikidata radius than normal nearby
+ * results, so they must not reuse the coordinate-only cache entry.
+ *
+ * @param {number} lat
+ * @param {number} lng
+ * @param {{ searchQuery?: string, radiusKm?: number, decimals?: number }} [options]
+ * @returns {string}
+ */
+export const geoLocationSearchKeyFromCoords = (
+    lat,
+    lng,
+    { searchQuery = "", radiusKm = 0, decimals = GEO_LOCATION_COORD_DECIMALS } = {},
+) => {
+    const base = geoLocationKeyFromCoords(lat, lng, decimals);
+    const queryKey = geocodeAnchorCacheKey(searchQuery);
+    const radius = Number(radiusKm);
+    if (!base || !queryKey || !Number.isFinite(radius) || radius <= 0) return base;
+    return `${base}__search_${queryKey}_r${radius}`;
 };
 
 /**

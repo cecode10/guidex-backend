@@ -83,6 +83,7 @@ export const buildNearbyPopularPlacesSparql = (
  *   countryCode?: string | null,
  *   countryFlag?: string,
  *   limit?: number,
+ *   radiusKm?: number,
  * }} context
  * @param {typeof fetch} [fetchImpl]
  * @returns {Promise<Array<Record<string, unknown>>>}
@@ -90,12 +91,18 @@ export const buildNearbyPopularPlacesSparql = (
 export const fetchWikidataNearbyPopularPlaces = async (
     lat,
     lng,
-    { city, countryCode = null, countryFlag, limit = MAX_NEARBY_RESULTS },
+    {
+        city,
+        countryCode = null,
+        countryFlag,
+        limit = MAX_NEARBY_RESULTS,
+        radiusKm = NEARBY_RADIUS_KM,
+    },
     fetchImpl = fetch,
 ) => {
-    const query = buildNearbyPopularPlacesSparql(lat, lng);
+    const query = buildNearbyPopularPlacesSparql(lat, lng, radiusKm);
     const bindings = await runWikidataSparql(query, fetchImpl, {
-        extra: `wikidata-nearby lat=${lat} lng=${lng} radiusKm=${NEARBY_RADIUS_KM}`,
+        extra: `wikidata-nearby lat=${lat} lng=${lng} radiusKm=${radiusKm}`,
     });
     return mapWikidataBindingsToPlaces(bindings, {
         lat,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SPARQL_POI_CATEGORIES } from "./places-lookup-utils.mjs";
+import { buildNearbyPopularPlacesSparql } from "./wikidata-nearby-utils.mjs";
 
 const categoryQids = () =>
     new Set([...SPARQL_POI_CATEGORIES.matchAll(/Q\d+/g)].map((match) => match[0]));
@@ -29,5 +30,13 @@ describe("SPARQL POI category whitelist", () => {
         expect(categories.has("Q10502151")).toBe(false); // fungus
         expect(categories.has("Q10864048")).toBe(false); // admin division
         expect(categories.has("Q213422")).toBe(false); // Seneca
+    });
+});
+
+describe("nearby popular SPARQL", () => {
+    it("uses the caller-provided radius", () => {
+        const query = buildNearbyPopularPlacesSparql(49.4093582, 8.694724, 10);
+        expect(query).toContain('bd:serviceParam wikibase:radius "10"');
+        expect(query).toContain("ORDER BY DESC(?sitelinks)");
     });
 });

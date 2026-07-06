@@ -33,6 +33,13 @@ export const APP_LANGUAGE_TO_GEOCODE = {
     russian: "ru",
 };
 
+/** Default Wikidata radius when Explore search geocoding fails. */
+export const POPULAR_SEARCH_RADIUS_FALLBACK_KM = 10;
+/** Upper bound for client- or server-provided Explore search radii. */
+export const POPULAR_SEARCH_RADIUS_MAX_KM = 50;
+/** Minimum Explore search radius; keep in sync with NEARBY_RADIUS_KM in places-lookup-utils.mjs */
+export const POPULAR_SEARCH_MIN_RADIUS_KM = 3;
+
 const CONTAINER_GEOCODE_TYPES = new Set([
     "locality",
     "postal_town",
@@ -97,6 +104,46 @@ export const deriveRadiusKm = (types) => {
         return 10;
     }
     return 2;
+};
+
+/**
+ * Wikidata radius for Explore search from Google geocode types. POI anchors stay
+ * at least [POPULAR_SEARCH_MIN_RADIUS_KM] wide; localities use 10 km.
+ *
+ * @param {string[] | undefined | null} types
+ * @returns {number}
+ */
+export const popularSearchRadiusKmFromGeocodeTypes = (types) =>
+    Math.max(deriveRadiusKm(types), POPULAR_SEARCH_MIN_RADIUS_KM);
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export const isValidPopularSearchRadiusKm = (value) => {
+    const radius = Number(value);
+    return (
+        Number.isFinite(radius) &&
+        radius > 0 &&
+        radius <= POPULAR_SEARCH_RADIUS_MAX_KM
+    );
+};
+
+/**
+ * Clamps an Explore search radius to the supported server-side range.
+ *
+ * @param {unknown} radiusKm
+ * @returns {number}
+ */
+export const normalizePopularSearchRadiusKm = (radiusKm) => {
+    const radius = Number(radiusKm);
+    if (!Number.isFinite(radius) || radius <= 0) {
+        return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
+    }
+    return Math.min(
+        Math.max(radius, POPULAR_SEARCH_MIN_RADIUS_KM),
+        POPULAR_SEARCH_RADIUS_MAX_KM,
+    );
 };
 
 /**
