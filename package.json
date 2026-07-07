@@ -16,7 +16,6 @@
         "deploy:deleteAccount": "firebase deploy --only functions:deleteAccount",
         "deploy:onUserProfileUpdate": "firebase deploy --only functions:onUserProfileUpdate",
         "deploy:resolvePlaceImage": "firebase deploy --only functions:resolvePlaceImage",
-        "deploy:resolveSearchAnchor": "firebase deploy --only functions:resolveSearchAnchor",
         "deploy:resolveNearMePopular": "firebase deploy --only functions:resolveNearMePopular",
         "deploy:resolveGlobalSearchPopular": "firebase deploy --only functions:resolveGlobalSearchPopular",
         "deploy:resolveNearbyPlaces": "firebase deploy --only functions:resolveNearbyPlaces",
@@ -32,7 +31,10 @@
         "logs": "firebase functions:log",
         "test": "vitest run",
         "test:watch": "vitest",
-        "cleanup:bad-image-negatives": "node scripts/delete-bad-place-image-negatives.mjs --dry-run --clear-explore --credentials scripts/guidex-afc30-2758ce305a68.json"
+        "cleanup:bad-image-negatives": "node scripts/delete-bad-place-image-negatives.mjs --dry-run --clear-explore --credentials scripts/guidex-afc30-2758ce305a68.json",
+        "cities:generate-list": "node scripts/generate-european-cities-list.mjs",
+        "cities:seed-cache": "node scripts/seed-european-city-search-cache.mjs",
+        "cities:seed-cache:dry-run": "node scripts/seed-european-city-search-cache.mjs --dry-run --limit 5"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

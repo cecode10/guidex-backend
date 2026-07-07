@@ -1,7 +1,3 @@
-/** @typedef {"ready" | "notFound"} GeocodeAnchorStatus */
-
-import { createHash } from "node:crypto";
-
 /** Maps app i18n language keys to Google Geocoding ISO 639-1 codes. */
 export const APP_LANGUAGE_TO_GEOCODE = {
     english: "en",
@@ -33,10 +29,6 @@ export const APP_LANGUAGE_TO_GEOCODE = {
     russian: "ru",
 };
 
-/** Default Wikidata radius when Explore search geocoding fails. */
-export const POPULAR_SEARCH_RADIUS_FALLBACK_KM = 10;
-/** Upper bound for client- or server-provided Explore search radii. */
-export const POPULAR_SEARCH_RADIUS_MAX_KM = 50;
 /** Minimum Explore search radius; keep in sync with NEARBY_RADIUS_KM in places-lookup-utils.mjs */
 export const POPULAR_SEARCH_MIN_RADIUS_KM = 3;
 
@@ -50,38 +42,6 @@ const CONTAINER_GEOCODE_TYPES = new Set([
     "sublocality",
     "sublocality_level_1",
 ]);
-
-/**
- * Normalizes a free-form search query into a stable cache key. Keeps letters and
- * digits from any Unicode script. Must stay in sync with Dart
- * `GeocodeAnchorUtils.normalizeGeocodeKey`.
- *
- * @param {string} query
- * @returns {string}
- */
-export const normalizeGeocodeKey = (query) =>
-    String(query || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]+/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-/**
- * Cache key for geocode anchor lookups. Uses [normalizeGeocodeKey] when possible;
- * falls back to a stable SHA-256 prefix for punctuation-only input.
- *
- * @param {string} query
- * @returns {string}
- */
-export const geocodeAnchorCacheKey = (query) => {
-    const normalized = normalizeGeocodeKey(query);
-    if (normalized) return normalized;
-    const trimmed = String(query || "").trim().toLowerCase();
-    if (!trimmed) return "";
-    const digest = createHash("sha256").update(trimmed, "utf8").digest("hex").slice(0, 40);
-    return `h:${digest}`;
-};
 
 /**
  * @param {string | undefined | null} appLanguage
@@ -115,40 +75,3 @@ export const deriveRadiusKm = (types) => {
  */
 export const popularSearchRadiusKmFromGeocodeTypes = (types) =>
     Math.max(deriveRadiusKm(types), POPULAR_SEARCH_MIN_RADIUS_KM);
-
-/**
- * @param {unknown} value
- * @returns {boolean}
- */
-export const isValidPopularSearchRadiusKm = (value) => {
-    const radius = Number(value);
-    return (
-        Number.isFinite(radius) &&
-        radius > 0 &&
-        radius <= POPULAR_SEARCH_RADIUS_MAX_KM
-    );
-};
-
-/**
- * Clamps an Explore search radius to the supported server-side range.
- *
- * @param {unknown} radiusKm
- * @returns {number}
- */
-export const normalizePopularSearchRadiusKm = (radiusKm) => {
-    const radius = Number(radiusKm);
-    if (!Number.isFinite(radius) || radius <= 0) {
-        return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
-    }
-    return Math.min(
-        Math.max(radius, POPULAR_SEARCH_MIN_RADIUS_KM),
-        POPULAR_SEARCH_RADIUS_MAX_KM,
-    );
-};
-
-/**
- * @param {Record<string, unknown> | undefined | null} data
- * @returns {boolean}
- */
-export const isReadyAnchorDoc = (data) =>
-    data != null && data.status === "ready" && typeof data.lat === "number" && typeof data.lng === "number";

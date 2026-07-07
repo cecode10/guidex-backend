@@ -9,7 +9,6 @@ export { textToSpeechFn as textToSpeech } from "./handlers/text-to-speech.mjs";
 export { deleteAccount } from "./handlers/delete-account.mjs";
 export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
 export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
-export { resolveSearchAnchor } from "./handlers/resolve-search-anchor.mjs";
 export { resolveNearMePopular } from "./handlers/resolve-near-me-popular.mjs";
 export { resolveGlobalSearchPopular } from "./handlers/resolve-global-search-popular.mjs";
 export { resolveNearbyPlaces } from "./handlers/resolve-nearby-places.mjs";

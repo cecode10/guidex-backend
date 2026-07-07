@@ -23,3 +23,6 @@ ui-debug.log
 
 # Firebase / GCP service account keys (never commit)
 scripts/guidex-afc30-*.json
+
+# Batch seed run reports (timestamped JSON)
+scripts/reports/

@@ -7,17 +7,18 @@ import {
     NEARBY_RADIUS_KM,
     explorePopularHttpStatus,
     fetchGoogleReverseGeocode,
-    geoLocationKeyFromCoords,
+    geoLocationPopularKeyFromCoords,
     geoMetadataFromGeocodeResult,
     resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
+import { GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveNearMePopular";
 
 /**
  * Cloud Function: popular places around the user's coordinates.
- * Reads/writes `geo-location/{lat}_{lng}/popularAroundList/*`.
+ * Reads/writes `geo-location/{lat}_{lng}_r{radius}/popularAroundList/*`.
  */
 export const resolveNearMePopular = onRequest(
     {
@@ -53,7 +54,7 @@ export const resolveNearMePopular = onRequest(
                 throw err;
             }
 
-            const key = geoLocationKeyFromCoords(lat, lng);
+            const key = geoLocationPopularKeyFromCoords(lat, lng, NEARBY_RADIUS_KM);
             if (!key) {
                 const err = new Error("Could not derive geo-location key");
                 err.statusCode = 400;
@@ -79,6 +80,7 @@ export const resolveNearMePopular = onRequest(
                 forceRefresh,
                 language,
                 apiKey,
+                cacheSource: GEO_LOCATION_CACHE_SOURCE.USER,
             });
 
             const elapsed = Date.now() - start;

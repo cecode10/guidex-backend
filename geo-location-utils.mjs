@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import {
     logExternalApiRequestUrl,
@@ -8,14 +7,47 @@ import {
 export const COLLECTION = "geo-location";
 export const POPULAR_AROUND_SUBCOLLECTION = "popularAroundList";
 export const MAX_NEARBY_RESULTS = 30;
-/** Max distance to treat a nearby row as the searched POI when promoting it. */
-export const SEARCH_ANCHOR_MATCH_RADIUS_METERS = 250;
-/** Decimal places for `geo-location/{lat}_{lng}` cache doc ids (~11 m). */
-export const GEO_LOCATION_COORD_DECIMALS = 4;
+
+/** How a geo-location parent doc was first populated. */
+export const GEO_LOCATION_CACHE_SOURCE = {
+    /** Pre-populated by `seed-european-city-search-cache.mjs`. */
+    BATCH_SEED: "batch_seed",
+    /** Created on cache miss via Cloud Functions (user Explore search / near-me). */
+    USER: "user",
+};
+
+/**
+ * @param {unknown} value
+ * @returns {value is string}
+ */
+export const isValidGeoLocationCacheSource = (value) =>
+    value === GEO_LOCATION_CACHE_SOURCE.BATCH_SEED ||
+    value === GEO_LOCATION_CACHE_SOURCE.USER;
+
+/**
+ * Preserves the original cache provenance once set (including legacy docs without it).
+ *
+ * @param {Record<string, unknown> | undefined | null} existingData
+ * @param {string | undefined} requestedSource
+ * @returns {string | null}
+ */
+export const geoLocationCacheSourceForWrite = (existingData, requestedSource) => {
+    const existing = existingData?.cacheSource;
+    if (isValidGeoLocationCacheSource(existing)) {
+        return existing;
+    }
+    if (isValidGeoLocationCacheSource(requestedSource)) {
+        return requestedSource;
+    }
+    return null;
+};
+
+/** Decimal places for `geo-location/{lat}_{lng}_r*` cache doc ids (~111 m). */
+export const GEO_LOCATION_COORD_DECIMALS = 3;
 
 /**
  * Stable Firestore doc id from rounded coordinates.
- * Example: (41.9030632, 12.466276) -> "41.9031_12.4663"
+ * Example: (41.9030632, 12.466276) -> "41.903_12.466"
  *
  * @param {number} lat
  * @param {number} lng
@@ -34,44 +66,25 @@ export const geoLocationKeyFromCoords = (
 };
 
 /**
- * Stable Firestore doc id for a free-form Explore search anchored at coords.
- * Search results can use a wider/narrower Wikidata radius than normal nearby
- * results, so they must not reuse the coordinate-only cache entry.
+ * Stable Firestore doc id for Explore popular places at a radius.
+ * Near-me and global search share the same key when radius matches (e.g. r3).
  *
  * @param {number} lat
  * @param {number} lng
- * @param {{ radiusKm?: number, decimals?: number }} [options]
+ * @param {number} radiusKm
+ * @param {number} [decimals]
  * @returns {string}
  */
-export const geoLocationSearchKeyFromCoords = (
+export const geoLocationPopularKeyFromCoords = (
     lat,
     lng,
-    { radiusKm = 0, decimals = GEO_LOCATION_COORD_DECIMALS } = {},
+    radiusKm,
+    decimals = GEO_LOCATION_COORD_DECIMALS,
 ) => {
     const base = geoLocationKeyFromCoords(lat, lng, decimals);
     const radius = Number(radiusKm);
     if (!base || !Number.isFinite(radius) || radius <= 0) return "";
-    return `${base}__search_r${radius}`;
-};
-
-/**
- * Turns a free-form label into snake_case (legacy helper).
- *
- * @param {string} label
- * @returns {string}
- */
-export const geoLocationKeyFromLabel = (label) => {
-    const snake = String(label || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, "_")
-        .replace(/^_+|_+$/g, "")
-        .replace(/_+/g, "_");
-    if (snake) return snake;
-    const trimmed = String(label || "").trim().toLowerCase();
-    if (!trimmed) return "";
-    const digest = createHash("sha256").update(trimmed, "utf8").digest("hex").slice(0, 40);
-    return `h:${digest}`;
+    return `${base}_r${radius}`;
 };
 
 /**
@@ -146,256 +159,6 @@ export const countryCodeFromGeocodeResult = (result) => {
 };
 
 /**
- * @param {string} name
- * @returns {string}
- */
-export const normalizePlaceNameForMatch = (name) =>
-    String(name || "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/\p{M}/gu, "")
-        .replace(/[^\p{L}\p{N}\s]+/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-/**
- * @param {string} a
- * @param {string} b
- * @returns {boolean}
- */
-export const placeNamesLikelyMatch = (a, b) => {
-    const left = normalizePlaceNameForMatch(a);
-    const right = normalizePlaceNameForMatch(b);
-    if (!left || !right) return false;
-    if (left === right) return true;
-    if (left.includes(right) || right.includes(left)) return true;
-
-    const leftTokens = left.split(" ").filter((token) => token.length > 2);
-    const rightTokens = new Set(right.split(" ").filter((token) => token.length > 2));
-    if (leftTokens.length === 0 || rightTokens.size === 0) return false;
-
-    let overlap = 0;
-    for (const token of leftTokens) {
-        if (rightTokens.has(token)) overlap++;
-    }
-    return overlap >= Math.min(leftTokens.length, rightTokens.size) && overlap >= 1;
-};
-
-/**
- * @param {Array<Record<string, unknown>>} places
- * @returns {Array<Record<string, unknown>>}
- */
-export const reindexPopularPlaces = (places) =>
-    places.map((place, index) => ({ ...place, order: index }));
-
-/**
- * @param {string} query
- * @param {typeof fetch} [fetchImpl]
- * @returns {Promise<{ qid: string, label: string } | null>}
- */
-export const resolveWikidataEntityForSearchQuery = async (query, fetchImpl = fetch) => {
-    const trimmed = String(query || "").trim();
-    if (trimmed.length < 2) return null;
-
-    const url =
-        "https://www.wikidata.org/w/api.php?action=wbsearchentities" +
-        `&search=${encodeURIComponent(trimmed)}` +
-        "&language=en&format=json&origin=*";
-    logExternalApiRequestUrl(url, { extra: `wbsearchentities query="${trimmed}"` });
-    const response = await fetchImpl(url, { headers: WIKI_HEADERS });
-    logExternalApiResponseUrl(url, response.status, {
-        extra: `wbsearchentities query="${trimmed}"`,
-    });
-    if (!response.ok) return null;
-
-    const body = /** @type {{ search?: Array<Record<string, unknown>> }} */ (
-        await response.json()
-    );
-    const hit = body.search?.[0];
-    const qid = String(hit?.id ?? "").trim();
-    if (!/^Q\d+$/.test(qid)) return null;
-    const label = String(hit?.label ?? "").trim();
-    const details = await resolveWikidataEntityImageHints(qid, fetchImpl);
-    return { qid, label: label || trimmed, ...details };
-};
-
-/**
- * @param {string} wikidataId
- * @param {typeof fetch} [fetchImpl]
- * @returns {Promise<{ wikipediaUrl: string | null, image: string | null }>}
- */
-export const resolveWikidataEntityImageHints = async (wikidataId, fetchImpl = fetch) => {
-    const qid = String(wikidataId || "").trim();
-    if (!/^Q\d+$/.test(qid)) return { wikipediaUrl: null, image: null };
-
-    const url =
-        `https://www.wikidata.org/w/api.php?action=wbgetentities` +
-        `&props=sitelinks|claims&ids=${encodeURIComponent(qid)}` +
-        `&sitefilter=enwiki&format=json&origin=*`;
-    logExternalApiRequestUrl(url, {
-        extra: `entity image hints wikidataId=${qid}`,
-    });
-    const response = await fetchImpl(url, { headers: WIKI_HEADERS });
-    logExternalApiResponseUrl(url, response.status, {
-        extra: `entity image hints wikidataId=${qid}`,
-    });
-    if (!response.ok) return { wikipediaUrl: null, image: null };
-
-    const body = await response.json();
-    const entity = body?.entities?.[qid];
-    const title = String(entity?.sitelinks?.enwiki?.title ?? "").trim();
-    const imageFile = String(
-        entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value ?? "",
-    ).trim();
-
-    return {
-        wikipediaUrl: title
-            ? `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`
-            : null,
-        image: imageFile
-            ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(imageFile)}`
-            : null,
-    };
-};
-
-/**
- * @param {Array<Record<string, unknown>>} places
- * @param {{
- *   searchQuery: string,
- *   anchorLat: number,
- *   anchorLng: number,
- *   anchorWikidataId?: string | null,
- * }} context
- * @returns {number}
- */
-export const findSearchAnchorPlaceIndex = (
-    places,
-    { searchQuery, anchorLat, anchorLng, anchorWikidataId },
-) => {
-    for (let index = 0; index < places.length; index++) {
-        const place = places[index];
-        const qid = String(place?.wikidataId ?? "").trim();
-        if (anchorWikidataId && qid === anchorWikidataId) return index;
-
-        const placeLat = typeof place?.lat === "number" ? place.lat : Number.NaN;
-        const placeLng = typeof place?.lng === "number" ? place.lng : Number.NaN;
-        if (!Number.isFinite(placeLat) || !Number.isFinite(placeLng)) continue;
-        if (!placeNamesLikelyMatch(String(place?.name ?? ""), searchQuery)) continue;
-
-        const distanceM = haversineDistanceMeters(anchorLat, anchorLng, placeLat, placeLng);
-        if (distanceM <= SEARCH_ANCHOR_MATCH_RADIUS_METERS) return index;
-    }
-    return -1;
-};
-
-/**
- * Ensures the user's searched POI appears first in Explore search results.
- * Wikidata nearby SPARQL may omit the exact establishment at the anchor.
- *
- * @param {Array<Record<string, unknown>>} places
- * @param {{
- *   searchQuery: string,
- *   lat: number,
- *   lng: number,
- *   city?: string,
- *   countryCode?: string | null,
- *   countryFlag?: string,
- * }} context
- * @param {typeof fetch} [fetchImpl]
- * @returns {Promise<Array<Record<string, unknown>>>}
- */
-export const ensureSearchAnchorInPopularPlaces = async (
-    places,
-    { searchQuery, lat, lng, city, countryCode, countryFlag },
-    fetchImpl = fetch,
-) => {
-    const query = String(searchQuery || "").trim();
-    if (!query || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return reindexPopularPlaces(places);
-    }
-
-    let anchorWikidataId = null;
-    let anchorImage = null;
-    let anchorWikipediaUrl = null;
-    try {
-        const entity = await resolveWikidataEntityForSearchQuery(query, fetchImpl);
-        anchorWikidataId = entity?.qid ?? null;
-        anchorImage = entity?.image ?? null;
-        anchorWikipediaUrl = entity?.wikipediaUrl ?? null;
-    } catch {
-        anchorWikidataId = null;
-        anchorImage = null;
-        anchorWikipediaUrl = null;
-    }
-
-    if (!anchorWikidataId) {
-        const [enriched] = await enrichPlacesWithWikidataIds([{ name: query }], fetchImpl);
-        anchorWikidataId = enriched?.wikidataId ?? null;
-    }
-
-    const cc = countryCode ?? null;
-    const flag = countryFlag ?? flagFromIsoCode(cc ?? "");
-    let updated = places.map((place) => ({ ...place }));
-
-    const matchIdx = findSearchAnchorPlaceIndex(updated, {
-        searchQuery: query,
-        anchorLat: lat,
-        anchorLng: lng,
-        anchorWikidataId,
-    });
-
-    /** @type {Record<string, unknown>} */
-    let anchorPlace;
-    if (matchIdx >= 0) {
-        const matched = updated[matchIdx];
-        updated.splice(matchIdx, 1);
-        anchorPlace = {
-            ...matched,
-            name: query,
-            distance: 0,
-            lat,
-            lng,
-            wikidataId: matched.wikidataId ?? anchorWikidataId ?? null,
-            image: matched.image ?? anchorImage ?? null,
-            wikipediaUrl: matched.wikipediaUrl ?? anchorWikipediaUrl ?? null,
-            sitelinks:
-                typeof matched.sitelinks === "number" && matched.sitelinks > 0
-                    ? matched.sitelinks
-                    : 9999,
-        };
-    } else {
-        anchorPlace = {
-            name: query,
-            type: "LANDMARK",
-            distance: 0,
-            city: city ?? "",
-            countryCode: cc,
-            countryFlag: flag,
-            image: anchorImage,
-            wikipediaUrl: anchorWikipediaUrl ?? wikipediaUrlFromTitle(query),
-            wikidataId: anchorWikidataId,
-            storageUrl: null,
-            imageStatus: null,
-            isSearchAnchor: true,
-            lat,
-            lng,
-            sitelinks: 9999,
-        };
-        if (!anchorPlace.wikidataId) {
-            const [enriched] = await enrichPlacesWithWikidataIds([anchorPlace], fetchImpl);
-            anchorPlace = enriched ?? anchorPlace;
-        }
-    }
-
-    updated.unshift(anchorPlace);
-    if (updated.length > MAX_NEARBY_RESULTS) {
-        updated = updated.slice(0, MAX_NEARBY_RESULTS);
-    }
-    return reindexPopularPlaces(updated);
-};
-
-/**
  * @param {string} iso
  * @returns {string}
  */
@@ -412,18 +175,6 @@ export const flagFromIsoCode = (iso) => {
 const WIKI_HEADERS = {
     "User-Agent": "rambleX-mobile (https://ramblex.app)",
     Accept: "application/json",
-};
-
-/**
- * Builds an en.wikipedia URL from an article title when no sitelink is available.
- *
- * @param {string} title
- * @returns {string | null}
- */
-export const wikipediaUrlFromTitle = (title) => {
-    const normalized = String(title || "").trim();
-    if (!normalized) return null;
-    return `https://en.wikipedia.org/wiki/${encodeURIComponent(normalized.replace(/ /g, "_"))}`;
 };
 
 /**
@@ -469,24 +220,6 @@ export const resolveWikidataIdsForTitles = async (titles, fetchImpl = fetch) => 
     }
 
     return qidByTitleLower;
-};
-
-/**
- * @param {number} lat1
- * @param {number} lng1
- * @param {number} lat2
- * @param {number} lng2
- * @returns {number} great-circle distance in metres
- */
-export const haversineDistanceMeters = (lat1, lng1, lat2, lng2) => {
-    const earthRadiusM = 6_371_000;
-    const toRad = (deg) => (deg * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return Math.round(earthRadiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 };
 
 /**
@@ -539,7 +272,6 @@ export const popularPlaceDocFromPlace = (place, index) => ({
     wikidataId: place.wikidataId ?? null,
     storageUrl: place.storageUrl ?? null,
     imageStatus: place.imageStatus ?? null,
-    isSearchAnchor: place.isSearchAnchor === true,
     lat: place.lat,
     lng: place.lng,
     sitelinks: place.sitelinks ?? 0,
@@ -567,7 +299,6 @@ export const popularPlaceFromDoc = (data) => ({
     wikipediaUrl: typeof data.wikipediaUrl === "string" ? data.wikipediaUrl : null,
     wikidataId: typeof data.wikidataId === "string" ? data.wikidataId : null,
     imageStatus: typeof data.imageStatus === "string" ? data.imageStatus : null,
-    isSearchAnchor: data.isSearchAnchor === true,
     lat: typeof data.lat === "number" ? data.lat : 0,
     lng: typeof data.lng === "number" ? data.lng : 0,
     sitelinks: typeof data.sitelinks === "number" ? data.sitelinks : 0,

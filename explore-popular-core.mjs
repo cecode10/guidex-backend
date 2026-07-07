@@ -1,11 +1,5 @@
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import {
-    POPULAR_SEARCH_RADIUS_FALLBACK_KM,
-    isValidPopularSearchRadiusKm,
-    normalizePopularSearchRadiusKm,
-    popularSearchRadiusKmFromGeocodeTypes,
-} from "./geocode-anchor-utils.mjs";
-import {
     logExternalApiRequest,
     logExternalApiResponse,
     logExternalApiCacheHit,
@@ -17,15 +11,14 @@ import {
     countryCodeFromGeocodeResult,
     deriveGeoLocationLabel,
     enrichPlacesWithWikidataIds,
-    ensureSearchAnchorInPopularPlaces,
     flagFromIsoCode,
-    geoLocationKeyFromCoords,
-    geoLocationSearchKeyFromCoords,
+    geoLocationPopularKeyFromCoords,
     isPopularPlaceImageCached,
     isValidWikidataId,
     mostPopularAroundFromPlaces,
     patchPopularPlaceImage,
     patchPopularPlaceWikidataId,
+    geoLocationCacheSourceForWrite,
     popularPlaceDocFromPlace,
     popularPlaceFromDoc,
 } from "./geo-location-utils.mjs";
@@ -38,9 +31,49 @@ import {
     ensurePlaceImageInFirestore,
     isWikimediaImageUrl,
 } from "./handlers/resolve-place-image.mjs";
-import { fetchGoogleGeocode } from "./handlers/resolve-search-anchor.mjs";
 
+export const GOOGLE_GEOCODE_TIMEOUT_MS = 12_000;
 export const GOOGLE_REVERSE_GEOCODE_TIMEOUT_MS = 12_000;
+
+/**
+ * @param {string} address
+ * @param {string} language
+ * @param {string} apiKey
+ * @returns {Promise<{ status: string, results?: Array<Record<string, unknown>> }>}
+ */
+export const fetchGoogleGeocode = async (address, language, apiKey) => {
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    url.searchParams.set("address", address);
+    url.searchParams.set("key", apiKey);
+    url.searchParams.set("language", language);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), GOOGLE_GEOCODE_TIMEOUT_MS);
+    try {
+        logExternalApiRequest(
+            "google-geocoding",
+            `forward-geocode query="${address}" language=${language}`,
+        );
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) {
+            logExternalApiResponse(
+                "google-geocoding",
+                `HTTP ${response.status} forward-geocode query="${address}"`,
+            );
+            throw new Error(`Google Geocoding HTTP ${response.status}`);
+        }
+        const body = /** @type {{ status: string, results?: Array<Record<string, unknown>> }} */ (
+            await response.json()
+        );
+        logExternalApiResponse(
+            "google-geocoding",
+            `status=${body.status} forward-geocode query="${address}"`,
+        );
+        return body;
+    } finally {
+        clearTimeout(timer);
+    }
+};
 
 /**
  * @param {number} lat
@@ -80,38 +113,6 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
         return body;
     } finally {
         clearTimeout(timer);
-    }
-};
-
-/**
- * @param {string} searchQuery
- * @param {string} language
- * @param {string} apiKey
- * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
- * @returns {Promise<number>}
- */
-export const derivePopularSearchRadiusKm = async (
-    searchQuery,
-    language,
-    apiKey,
-    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
-) => {
-    const query = String(searchQuery || "").trim();
-    if (!query) return NEARBY_RADIUS_KM;
-
-    try {
-        const geocode = await fetchGoogleGeocodeImpl(query, language, apiKey);
-        if (geocode.status !== "OK" || !geocode.results?.length) {
-            return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
-        }
-        const best = geocode.results[0];
-        const types = Array.isArray(best.types) ? best.types.map((value) => String(value)) : [];
-        return popularSearchRadiusKmFromGeocodeTypes(types);
-    } catch (error) {
-        console.warn(
-            `[explore-popular] search radius fallback for "${query}": ${error?.message || error}`,
-        );
-        return POPULAR_SEARCH_RADIUS_FALLBACK_KM;
     }
 };
 
@@ -279,31 +280,6 @@ export const reconcileCachedPopularPlaces = async (
 };
 
 /**
- * Resolves Explore search radius from geocode types on the server.
- *
- * @param {string} searchQuery
- * @param {string} language
- * @param {string} apiKey
- * @param {typeof fetchGoogleGeocode} [fetchGoogleGeocodeImpl]
- * @returns {Promise<number>}
- */
-export const resolvePopularSearchRadiusKm = async (
-    searchQuery,
-    { language, apiKey, radiusKm: clientRadiusKm },
-    fetchGoogleGeocodeImpl = fetchGoogleGeocode,
-) => {
-    if (isValidPopularSearchRadiusKm(clientRadiusKm)) {
-        return normalizePopularSearchRadiusKm(clientRadiusKm);
-    }
-    return derivePopularSearchRadiusKm(
-        searchQuery,
-        language,
-        apiKey,
-        fetchGoogleGeocodeImpl,
-    );
-};
-
-/**
  * @param {Record<string, unknown>} best
  * @returns {{
  *   label: string,
@@ -375,6 +351,7 @@ export const explorePopularHttpStatus = (error) => {
  *   forceRefresh?: boolean,
  *   language: string,
  *   apiKey: string,
+ *   cacheSource?: string,
  * }} options
  * @returns {Promise<{ key: string, label: string, lat: number, lon: number, places: Array<Record<string, unknown>>, radiusKm: number, cached: boolean }>}
  */
@@ -394,27 +371,19 @@ export const resolveExplorePopularPlaces = async ({
     forceRefresh = false,
     language,
     apiKey,
+    cacheSource,
 }) => {
     const db = getFirestore();
     const docRef = db.collection(COLLECTION).doc(key);
     const existing = await docRef.get();
+    const existingData = existing.exists ? existing.data() : null;
     const trimmedSearchQuery = String(searchQuery || "").trim();
     const flag = countryFlag ?? flagFromIsoCode(countryCode ?? "");
 
     if (!forceRefresh && existing.exists) {
         const cachedPlaces = await readPopularAroundList(db, key);
         if (cachedPlaces.length > 0) {
-            let places = await reconcileCachedPopularPlaces(db, key, cachedPlaces);
-            if (trimmedSearchQuery) {
-                places = await ensureSearchAnchorInPopularPlaces(places, {
-                    searchQuery: trimmedSearchQuery,
-                    lat,
-                    lng,
-                    city,
-                    countryCode,
-                    countryFlag: flag,
-                });
-            }
+            const places = await reconcileCachedPopularPlaces(db, key, cachedPlaces);
             logExternalApiCacheHit("geo-location-popular", {
                 key,
                 detail:
@@ -459,26 +428,15 @@ export const resolveExplorePopularPlaces = async ({
             sparqlFailed = true;
             places = [];
             console.warn(
-                `[${functionName}] SPARQL failed for ${key}, falling back to search anchor only`,
+                `[${functionName}] SPARQL failed for ${key}, returning empty search results`,
             );
         } else {
             throw error;
         }
     }
-    if (trimmedSearchQuery) {
-        places = await ensureSearchAnchorInPopularPlaces(places, {
-            searchQuery: trimmedSearchQuery,
-            lat,
-            lng,
-            city,
-            countryCode,
-            countryFlag: flag,
-        });
-    }
-
-    if (sparqlFailed && places.length <= 1) {
+    if (trimmedSearchQuery && sparqlFailed && places.length === 0) {
         console.log(
-            `[${functionName}] anchor-only fallback ${key} (${places.length} places, not cached)`,
+            `[${functionName}] empty search fallback ${key} (SPARQL failed, not cached)`,
         );
         return {
             key,
@@ -493,18 +451,21 @@ export const resolveExplorePopularPlaces = async ({
     }
 
     const now = FieldValue.serverTimestamp();
-    await docRef.set(
-        {
-            key,
-            label,
-            lat: resolvedLat,
-            lon: resolvedLng,
-            mostPopularAround: mostPopularAroundFromPlaces(places),
-            createdAt: existing.exists ? existing.data()?.createdAt ?? now : now,
-            updatedAt: now,
-        },
-        { merge: true },
-    );
+    const resolvedCacheSource = geoLocationCacheSourceForWrite(existingData, cacheSource);
+    /** @type {Record<string, unknown>} */
+    const parentDoc = {
+        key,
+        label,
+        lat: resolvedLat,
+        lon: resolvedLng,
+        mostPopularAround: mostPopularAroundFromPlaces(places),
+        createdAt: existing.exists ? existingData?.createdAt ?? now : now,
+        updatedAt: now,
+    };
+    if (resolvedCacheSource) {
+        parentDoc.cacheSource = resolvedCacheSource;
+    }
+    await docRef.set(parentDoc, { merge: true });
     await writePopularAroundList(docRef, places, now);
 
     console.log(`[${functionName}] resolved ${key} (${places.length} places)`);
@@ -520,8 +481,6 @@ export const resolveExplorePopularPlaces = async ({
 };
 
 export {
-    geoLocationKeyFromCoords,
-    geoLocationSearchKeyFromCoords,
+    geoLocationPopularKeyFromCoords,
     NEARBY_RADIUS_KM,
-    fetchGoogleGeocode,
 };

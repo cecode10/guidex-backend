@@ -7,11 +7,12 @@ import {
     fetchGoogleGeocode,
     fetchGoogleReverseGeocode,
     forwardGeocodeHasLocalityMetadata,
-    geoLocationSearchKeyFromCoords,
+    geoLocationPopularKeyFromCoords,
     geoMetadataFromGeocodeResult,
     explorePopularHttpStatus,
     resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
+import { GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveGlobalSearchPopular";
@@ -20,7 +21,7 @@ const MAX_QUERY_LEN = 200;
 
 /**
  * Cloud Function: free-form Explore search. Forward-geocodes the query on the
- * server, then reads/writes search-scoped `geo-location/{key}/popularAroundList`.
+ * server, then reads/writes `geo-location/{lat}_{lng}_r{radius}/popularAroundList`.
  */
 export const resolveGlobalSearchPopular = onRequest(
     {
@@ -80,7 +81,7 @@ export const resolveGlobalSearchPopular = onRequest(
             const radiusKm = popularSearchRadiusKmFromGeocodeTypes(
                 Array.isArray(best.types) ? best.types.map((value) => String(value)) : [],
             );
-            const key = geoLocationSearchKeyFromCoords(lat, lng, { radiusKm });
+            const key = geoLocationPopularKeyFromCoords(lat, lng, radiusKm);
             if (!key) {
                 const err = new Error("Could not derive geo-location key");
                 err.statusCode = 400;
@@ -119,6 +120,7 @@ export const resolveGlobalSearchPopular = onRequest(
                 forceRefresh,
                 language,
                 apiKey,
+                cacheSource: GEO_LOCATION_CACHE_SOURCE.USER,
             });
 
             const elapsed = Date.now() - start;
