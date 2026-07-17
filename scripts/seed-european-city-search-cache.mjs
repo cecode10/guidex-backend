@@ -4,7 +4,7 @@
  * European cities with 100k+ inhabitants (see scripts/data/european-cities-100k.json).
  *
  * Mirrors production `resolveGlobalSearchPopular` geocoding + Wikidata SPARQL flow.
- * Designed for slow, resilient batch runs — skips failures and writes a report.
+ * Batch runs default to the high-quality category-based SPARQL profile.
  *
  * Prerequisites
  * -------------
@@ -15,10 +15,18 @@
  *
  * Usage
  * -----
+ *   # Pilot: geocode only
  *   node scripts/seed-european-city-search-cache.mjs --dry-run --limit 5
+ *
+ *   # Pilot: 10 cities with quality SPARQL
  *   node scripts/seed-european-city-search-cache.mjs \\
  *     --credentials scripts/guidex-afc30-2758ce305a68.json \\
- *     --input scripts/data/european-cities-100k.json
+ *     --limit 10 --force-refresh
+ *
+ *   # Full repopulation (777 cities, ~20–24h)
+ *   node scripts/seed-european-city-search-cache.mjs \\
+ *     --credentials scripts/guidex-afc30-2758ce305a68.json \\
+ *     --force-refresh --sparql-profile quality
  *
  * Flags
  * -----
@@ -27,10 +35,13 @@
  *   --limit N              Process at most N cities
  *   --offset N             Skip first N cities
  *   --force-refresh        Re-fetch even when cache exists
- *   --delay-ms N           Pause between cities (default: 5000)
- *   --geocode-retries N    Google geocode retries (default: 3)
+ *   --sparql-profile NAME  `quality` (default) or `fast`
+ *   --sparql-timeout-ms N  Wikidata SPARQL timeout (default: 120000 for quality)
  *   --sparql-retries N     Outer Wikidata SPARQL retries per city (default: 5)
- *   --report-dir PATH      Report output dir (default: scripts/reports)
+ *   --min-places-warn N    Flag thin results in report when places < N (default: 10)
+ *   --delay-ms N           Pause between cities (default: 10000)
+ *   --geocode-retries N    Google geocode retries (default: 3)
+ *   --report-dir PATH      Report output dir (default: reports)
  *   --project ID           Firebase project id (default: guidex-afc30)
  *   --credentials PATH     Service account JSON
  */
@@ -47,7 +58,16 @@ import {
     geoMetadataFromGeocodeResult,
     resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
-import { COLLECTION, GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
+import { COLLECTION, GEO_LOCATION_CACHE_SOURCE, POPULAR_AROUND_SUBCOLLECTION } from "../geo-location-utils.mjs";
+import {
+    SPARQL_PROFILE,
+    WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
+    METRO_FALLBACK_SPARQL_RADIUS_KM,
+    SPARQL_METRO_FETCH_LIMIT,
+    isValidSparqlProfile,
+    normalizeSparqlProfile,
+    sparqlProfileMatchesCache,
+} from "../wikidata-nearby-utils.mjs";
 import { DEFAULT_CITIES_FILE } from "./european-cities-config.mjs";
 import {
     exponentialBackoffMs,
@@ -74,6 +94,9 @@ const TARGET_RADIUS_KM = 10;
  *   key?: string,
  *   places?: number,
  *   radiusKm?: number,
+ *   sparqlProfile?: string,
+ *   topSitelinks?: number,
+ *   thinResult?: boolean,
  *   attempts?: number,
  *   message?: string,
  *   durationMs?: number,
@@ -90,10 +113,17 @@ function parseArgs(argv) {
         limit: Infinity,
         offset: 0,
         forceRefresh: false,
-        delayMs: 5000,
+        sparqlProfile: SPARQL_PROFILE.QUALITY,
+        sparqlTimeoutMs: WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
+        delayMs: 10_000,
         geocodeRetries: 3,
         sparqlRetries: 5,
-        reportDir: "scripts/reports",
+        sparqlMaxAttempts: 3,
+        minPlacesWarn: 10,
+        metroFallback: false,
+        metroSparqlRadiusKm: METRO_FALLBACK_SPARQL_RADIUS_KM,
+        metroFetchLimit: SPARQL_METRO_FETCH_LIMIT,
+        reportDir: "reports",
         projectId: "guidex-afc30",
         credentials: "",
     };
@@ -104,11 +134,26 @@ function parseArgs(argv) {
         else if (arg === "--limit") opts.limit = Number(argv[++i] ?? "0") || Infinity;
         else if (arg === "--offset") opts.offset = Number(argv[++i] ?? "0") || 0;
         else if (arg === "--force-refresh") opts.forceRefresh = true;
-        else if (arg === "--delay-ms") opts.delayMs = Number(argv[++i] ?? opts.delayMs);
+        else if (arg === "--sparql-profile") {
+            const profile = String(argv[++i] ?? "").trim();
+            if (!isValidSparqlProfile(profile)) {
+                throw new Error(`--sparql-profile must be "${SPARQL_PROFILE.FAST}" or "${SPARQL_PROFILE.QUALITY}"`);
+            }
+            opts.sparqlProfile = profile;
+            if (profile === SPARQL_PROFILE.FAST) {
+                opts.sparqlTimeoutMs = 45_000;
+            }
+        } else if (arg === "--sparql-timeout-ms") {
+            opts.sparqlTimeoutMs = Number(argv[++i] ?? opts.sparqlTimeoutMs);
+        } else if (arg === "--min-places-warn") {
+            opts.minPlacesWarn = Number(argv[++i] ?? opts.minPlacesWarn);
+        } else if (arg === "--delay-ms") opts.delayMs = Number(argv[++i] ?? opts.delayMs);
         else if (arg === "--geocode-retries") {
             opts.geocodeRetries = Number(argv[++i] ?? opts.geocodeRetries);
         } else if (arg === "--sparql-retries") {
             opts.sparqlRetries = Number(argv[++i] ?? opts.sparqlRetries);
+        } else if (arg === "--sparql-max-attempts") {
+            opts.sparqlMaxAttempts = Number(argv[++i] ?? opts.sparqlMaxAttempts);
         } else if (arg === "--report-dir") opts.reportDir = String(argv[++i] ?? opts.reportDir);
         else if (arg === "--project") opts.projectId = String(argv[++i] ?? opts.projectId);
         else if (arg === "--credentials") opts.credentials = String(argv[++i] ?? "");
@@ -120,6 +165,31 @@ See script header for flags.`);
         }
     }
     return opts;
+}
+
+/**
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {string} key
+ */
+async function countPopularAroundList(db, key) {
+    const snap = await db
+        .collection(COLLECTION)
+        .doc(key)
+        .collection(POPULAR_AROUND_SUBCOLLECTION)
+        .get();
+    return snap.size;
+}
+
+/**
+ * @param {Array<Record<string, unknown>>} places
+ * @param {number} minPlacesWarn
+ */
+function seedMetricsFromPlaces(places, minPlacesWarn) {
+    const topSitelinks = Number(places[0]?.sitelinks ?? 0) || 0;
+    return {
+        topSitelinks,
+        thinResult: places.length > 0 && places.length < minPlacesWarn,
+    };
 }
 
 /**
@@ -228,19 +298,22 @@ export async function seedOneCity({ city, index, apiKey, opts }) {
             const db = getFirestore();
             const existing = await db.collection(COLLECTION).doc(key).get();
             if (existing.exists) {
-                const sub = await db
-                    .collection(COLLECTION)
-                    .doc(key)
-                    .collection("popularAroundList")
-                    .limit(1)
-                    .get();
-                if (!sub.empty) {
+                const existingProfile =
+                    typeof existing.data()?.sparqlProfile === "string"
+                        ? existing.data().sparqlProfile
+                        : null;
+                const placeCount = await countPopularAroundList(db, key);
+                if (
+                    placeCount > 0 &&
+                    sparqlProfileMatchesCache(existingProfile, opts.sparqlProfile)
+                ) {
                     return {
                         ...base,
                         status: "cached_skip",
                         key,
                         radiusKm,
-                        places: sub.size,
+                        places: placeCount,
+                        sparqlProfile: normalizeSparqlProfile(existingProfile ?? opts.sparqlProfile),
                         message: "Cache already populated",
                         durationMs: Date.now() - started,
                     };
@@ -286,27 +359,40 @@ export async function seedOneCity({ city, index, apiKey, opts }) {
                     language: "en",
                     apiKey,
                     cacheSource: GEO_LOCATION_CACHE_SOURCE.BATCH_SEED,
+                    sparqlProfile: opts.sparqlProfile,
+                    sparqlTimeoutMs: opts.sparqlTimeoutMs,
+                    sparqlMaxAttempts: opts.sparqlMaxAttempts,
+                    sparqlRadiusKm: opts.metroFallback ? opts.metroSparqlRadiusKm : undefined,
+                    sparqlFetchLimit: opts.metroFallback ? opts.metroFetchLimit : undefined,
                 });
 
                 if (result.cached && result.places.length > 0) {
+                    const metrics = seedMetricsFromPlaces(result.places, opts.minPlacesWarn);
                     return {
                         ...base,
                         status: "cached_skip",
                         key,
                         radiusKm,
                         places: result.places.length,
+                        sparqlProfile: opts.sparqlProfile,
+                        topSitelinks: metrics.topSitelinks,
+                        thinResult: metrics.thinResult,
                         attempts: attempt + 1,
                         durationMs: Date.now() - started,
                     };
                 }
 
                 if (result.places.length > 0) {
+                    const metrics = seedMetricsFromPlaces(result.places, opts.minPlacesWarn);
                     return {
                         ...base,
                         status: "seeded",
                         key,
                         radiusKm,
                         places: result.places.length,
+                        sparqlProfile: opts.sparqlProfile,
+                        topSitelinks: metrics.topSitelinks,
+                        thinResult: metrics.thinResult,
                         attempts: attempt + 1,
                         durationMs: Date.now() - started,
                     };
@@ -405,12 +491,13 @@ export async function runSeedEuropeanCitySearchCache(opts) {
 
     const slice = cities.slice(opts.offset, opts.offset + opts.limit);
     console.log(
-        "starting seed totalInFile=%d processing=%d offset=%d dryRun=%s forceRefresh=%s delayMs=%d",
+        "starting seed totalInFile=%d processing=%d offset=%d dryRun=%s forceRefresh=%s sparqlProfile=%s delayMs=%d",
         cities.length,
         slice.length,
         opts.offset,
         opts.dryRun,
         opts.forceRefresh,
+        opts.sparqlProfile,
         opts.delayMs,
     );
 
@@ -444,6 +531,7 @@ export async function runSeedEuropeanCitySearchCache(opts) {
     }
 
     const summary = summarizeSeedReport(results);
+    const thinResults = results.filter((row) => row.thinResult);
     const report = {
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - runStarted,
@@ -452,10 +540,15 @@ export async function runSeedEuropeanCitySearchCache(opts) {
         limit: Number.isFinite(opts.limit) ? opts.limit : null,
         dryRun: opts.dryRun,
         forceRefresh: opts.forceRefresh,
+        sparqlProfile: opts.sparqlProfile,
+        sparqlTimeoutMs: opts.sparqlTimeoutMs,
+        minPlacesWarn: opts.minPlacesWarn,
         totals: {
             processed: results.length,
+            thinResults: thinResults.length,
             ...summary,
         },
+        thinResults,
         failures: results.filter((row) =>
             ["geocode_failed", "sparql_failed", "empty_results", "error"].includes(row.status),
         ),
@@ -472,6 +565,7 @@ export async function runSeedEuropeanCitySearchCache(opts) {
     console.log("processed: %d", results.length);
     console.log("seeded: %d", summary.seeded);
     console.log("cached_skip: %d", summary.cached_skip);
+    console.log("thin_results: %d", thinResults.length);
     console.log("geocode_failed: %d", summary.geocode_failed);
     console.log("sparql_failed: %d", summary.sparql_failed);
     console.log("empty_results: %d", summary.empty_results);

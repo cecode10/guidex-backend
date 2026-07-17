@@ -13,6 +13,10 @@ import {
     resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
 import { GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
+import {
+    SPARQL_PROFILE,
+    WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
+} from "../wikidata-nearby-utils.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveGlobalSearchPopular";
@@ -121,6 +125,8 @@ export const resolveGlobalSearchPopular = onRequest(
                 language,
                 apiKey,
                 cacheSource: GEO_LOCATION_CACHE_SOURCE.USER,
+                sparqlProfile: SPARQL_PROFILE.QUALITY,
+                sparqlTimeoutMs: WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
             });
 
             const elapsed = Date.now() - start;

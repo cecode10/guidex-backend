@@ -19,12 +19,16 @@ import {
     patchPopularPlaceImage,
     patchPopularPlaceWikidataId,
     geoLocationCacheSourceForWrite,
+    GEO_LOCATION_CACHE_SOURCE,
     popularPlaceDocFromPlace,
     popularPlaceFromDoc,
 } from "./geo-location-utils.mjs";
 import {
     NEARBY_RADIUS_KM,
+    SPARQL_PROFILE,
     fetchWikidataNearbyPopularPlaces,
+    normalizeSparqlProfile,
+    sparqlProfileMatchesCache,
 } from "./wikidata-nearby-utils.mjs";
 import {
     TransientUpstreamError,
@@ -333,6 +337,27 @@ export const explorePopularHttpStatus = (error) => {
 };
 
 /**
+ * Picks the SPARQL profile for a cache write. Prevents a fast re-fetch from
+ * downgrading a batch-seeded quality cache (e.g. pull-to-refresh on old builds).
+ *
+ * @param {string | undefined} requestedProfile
+ * @param {Record<string, unknown> | null | undefined} existingData
+ * @returns {typeof SPARQL_PROFILE.FAST | typeof SPARQL_PROFILE.QUALITY}
+ */
+export const resolveSparqlProfileForCacheWrite = (requestedProfile, existingData) => {
+    const requested = normalizeSparqlProfile(requestedProfile);
+    const existing = existingData?.sparqlProfile;
+    if (
+        requested === SPARQL_PROFILE.FAST &&
+        existing === SPARQL_PROFILE.QUALITY &&
+        existingData?.cacheSource === GEO_LOCATION_CACHE_SOURCE.BATCH_SEED
+    ) {
+        return SPARQL_PROFILE.QUALITY;
+    }
+    return requested;
+};
+
+/**
  * Loads or resolves popular places for a geo-location cache key.
  *
  * @param {{
@@ -352,6 +377,11 @@ export const explorePopularHttpStatus = (error) => {
  *   language: string,
  *   apiKey: string,
  *   cacheSource?: string,
+ *   sparqlProfile?: string,
+ *   sparqlTimeoutMs?: number,
+ *   sparqlMaxAttempts?: number,
+ *   sparqlRadiusKm?: number,
+ *   sparqlFetchLimit?: number,
  * }} options
  * @returns {Promise<{ key: string, label: string, lat: number, lon: number, places: Array<Record<string, unknown>>, radiusKm: number, cached: boolean }>}
  */
@@ -372,6 +402,11 @@ export const resolveExplorePopularPlaces = async ({
     language,
     apiKey,
     cacheSource,
+    sparqlProfile = SPARQL_PROFILE.FAST,
+    sparqlTimeoutMs,
+    sparqlMaxAttempts,
+    sparqlRadiusKm,
+    sparqlFetchLimit,
 }) => {
     const db = getFirestore();
     const docRef = db.collection(COLLECTION).doc(key);
@@ -379,6 +414,10 @@ export const resolveExplorePopularPlaces = async ({
     const existingData = existing.exists ? existing.data() : null;
     const trimmedSearchQuery = String(searchQuery || "").trim();
     const flag = countryFlag ?? flagFromIsoCode(countryCode ?? "");
+    const resolvedSparqlProfile = resolveSparqlProfileForCacheWrite(
+        sparqlProfile,
+        existingData,
+    );
 
     if (!forceRefresh && existing.exists) {
         const cachedPlaces = await readPopularAroundList(db, key);
@@ -409,6 +448,7 @@ export const resolveExplorePopularPlaces = async ({
 
     console.log(
         `[${functionName}] cache miss ${key} lat=${lat} lng=${lng} radiusKm=${radiusKm}` +
+            ` profile=${resolvedSparqlProfile}` +
             (trimmedSearchQuery ? ` searchQuery="${trimmedSearchQuery}"` : ""),
     );
 
@@ -422,6 +462,11 @@ export const resolveExplorePopularPlaces = async ({
             limit: MAX_NEARBY_RESULTS,
             radiusKm,
             globalSearch: Boolean(trimmedSearchQuery),
+            sparqlProfile: resolvedSparqlProfile,
+            sparqlTimeoutMs,
+            sparqlMaxAttempts,
+            sparqlRadiusKm,
+            sparqlFetchLimit,
         });
     } catch (error) {
         if (trimmedSearchQuery && error?.name === "WikidataSparqlTransientError") {
@@ -450,6 +495,28 @@ export const resolveExplorePopularPlaces = async ({
         };
     }
 
+    const existingPlaces = existing.exists ? await readPopularAroundList(db, key) : [];
+    if (
+        existingPlaces.length > 0 &&
+        places.length < existingPlaces.length &&
+        resolvedSparqlProfile === SPARQL_PROFILE.FAST
+    ) {
+        console.warn(
+            `[${functionName}] blocked cache downgrade ${key}: ` +
+                `${existingPlaces.length} -> ${places.length} places (profile=${resolvedSparqlProfile})`,
+        );
+        const reconciled = await reconcileCachedPopularPlaces(db, key, existingPlaces);
+        return {
+            key,
+            label,
+            lat: existing.data()?.lat ?? resolvedLat,
+            lon: existing.data()?.lon ?? resolvedLng,
+            places: reconciled,
+            radiusKm,
+            cached: true,
+        };
+    }
+
     const now = FieldValue.serverTimestamp();
     const resolvedCacheSource = geoLocationCacheSourceForWrite(existingData, cacheSource);
     /** @type {Record<string, unknown>} */
@@ -465,8 +532,16 @@ export const resolveExplorePopularPlaces = async ({
     if (resolvedCacheSource) {
         parentDoc.cacheSource = resolvedCacheSource;
     }
-    await docRef.set(parentDoc, { merge: true });
+    parentDoc.sparqlProfile = resolvedSparqlProfile;
+    parentDoc.placeCount = places.length;
+    if (sparqlRadiusKm != null && sparqlRadiusKm !== radiusKm) {
+        parentDoc.sparqlRadiusKm = sparqlRadiusKm;
+    }
+    if (sparqlFetchLimit != null) {
+        parentDoc.sparqlFetchLimit = sparqlFetchLimit;
+    }
     await writePopularAroundList(docRef, places, now);
+    await docRef.set(parentDoc, { merge: true });
 
     console.log(`[${functionName}] resolved ${key} (${places.length} places)`);
     return {

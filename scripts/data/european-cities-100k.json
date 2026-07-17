@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-07-07T08:29:07.607Z",
+  "generatedAt": "2026-07-07T21:16:27.798Z",
   "source": "wikidata-sparql",
   "minPopulation": 100000,
   "countryCount": 50,
-  "count": 703,
+  "count": 777,
   "cities": [
     {
       "name": "Durrës",
@@ -76,6 +76,24 @@
       "lat": 47.8,
       "lon": 13.045,
       "population": 155021
+    },
+    {
+      "name": "Vienna",
+      "country": "Austria",
+      "searchQuery": "Vienna, Austria",
+      "wikidataId": "Q1741",
+      "lat": 48.208333333,
+      "lon": 16.3725,
+      "population": 2083630
+    },
+    {
+      "name": "Baku",
+      "country": "Azerbaijan",
+      "searchQuery": "Baku, Azerbaijan",
+      "wikidataId": "Q9248",
+      "lat": 40.366655555,
+      "lon": 49.835183333,
+      "population": 2300500
     },
     {
       "name": "Ganja",
@@ -321,6 +339,33 @@
       "population": 225592
     },
     {
+      "name": "Dobrich",
+      "country": "Bulgaria",
+      "searchQuery": "Dobrich, Bulgaria",
+      "wikidataId": "Q168668",
+      "lat": 43.562212,
+      "lon": 27.83189,
+      "population": 129151
+    },
+    {
+      "name": "Pazardzhik",
+      "country": "Bulgaria",
+      "searchQuery": "Pazardzhik, Bulgaria",
+      "wikidataId": "Q186576",
+      "lat": 42.193477,
+      "lon": 24.332755,
+      "population": 100401
+    },
+    {
+      "name": "Pernik",
+      "country": "Bulgaria",
+      "searchQuery": "Pernik, Bulgaria",
+      "wikidataId": "Q185289",
+      "lat": 42.599828,
+      "lon": 23.030805,
+      "population": 104146
+    },
+    {
       "name": "Pleven",
       "country": "Bulgaria",
       "searchQuery": "Pleven, Bulgaria",
@@ -348,6 +393,15 @@
       "population": 202793
     },
     {
+      "name": "Shumen",
+      "country": "Bulgaria",
+      "searchQuery": "Shumen, Bulgaria",
+      "wikidataId": "Q181830",
+      "lat": 43.274585,
+      "lon": 26.93486,
+      "population": 116399
+    },
+    {
       "name": "Sliven",
       "country": "Bulgaria",
       "searchQuery": "Sliven, Bulgaria",
@@ -355,6 +409,15 @@
       "lat": 42.678146,
       "lon": 26.325963,
       "population": 120515
+    },
+    {
+      "name": "Sofia",
+      "country": "Bulgaria",
+      "searchQuery": "Sofia, Bulgaria",
+      "wikidataId": "Q472",
+      "lat": 42.697886,
+      "lon": 23.321726,
+      "population": 1242568
     },
     {
       "name": "Stara Zagora",
@@ -546,6 +609,15 @@
       "population": 478000
     },
     {
+      "name": "Tartu",
+      "country": "Estonia",
+      "searchQuery": "Tartu, Estonia",
+      "wikidataId": "Q13972",
+      "lat": 58.38,
+      "lon": 26.7225,
+      "population": 115000
+    },
+    {
       "name": "Espoo",
       "country": "Finland",
       "searchQuery": "Espoo, Finland",
@@ -717,6 +789,15 @@
       "population": 147865
     },
     {
+      "name": "Corsica",
+      "country": "France",
+      "searchQuery": "Corsica, France",
+      "wikidataId": "Q14112",
+      "lat": 42.15,
+      "lon": 9.083333333,
+      "population": 355486
+    },
+    {
       "name": "Dijon",
       "country": "France",
       "searchQuery": "Dijon, France",
@@ -798,6 +879,24 @@
       "population": 914000
     },
     {
+      "name": "Métropole Aix-Marseille-Provence",
+      "country": "France",
+      "searchQuery": "Métropole Aix-Marseille-Provence, France",
+      "wikidataId": "Q16665884",
+      "lat": 43.2924,
+      "lon": 5.3596,
+      "population": 1898950
+    },
+    {
+      "name": "Metropolis of Lyon",
+      "country": "France",
+      "searchQuery": "Metropolis of Lyon, France",
+      "wikidataId": "Q16665897",
+      "lat": 45.7574955,
+      "lon": 4.853973694,
+      "population": 1436354
+    },
+    {
       "name": "Metz",
       "country": "France",
       "searchQuery": "Metz, France",
@@ -877,6 +976,15 @@
       "lat": 47.902222222,
       "lon": 1.904166666,
       "population": 118601
+    },
+    {
+      "name": "Paris",
+      "country": "France",
+      "searchQuery": "Paris, France",
+      "wikidataId": "Q90",
+      "lat": 48.856666666,
+      "lon": 2.352222222,
+      "population": 2243739
     },
     {
       "name": "Perpignan",
@@ -1014,6 +1122,15 @@
       "population": 158661
     },
     {
+      "name": "Tbilisi",
+      "country": "Georgia",
+      "searchQuery": "Tbilisi, Georgia",
+      "wikidataId": "Q994",
+      "lat": 41.7225,
+      "lon": 44.7925,
+      "population": 1400000
+    },
+    {
       "name": "Aachen",
       "country": "Germany",
       "searchQuery": "Aachen, Germany",
@@ -1039,6 +1156,15 @@
       "lat": 50.991666666,
       "lon": 7.136666666,
       "population": 113085
+    },
+    {
+      "name": "Berlin",
+      "country": "Germany",
+      "searchQuery": "Berlin, Germany",
+      "wikidataId": "Q64",
+      "lat": 52.516666666,
+      "lon": 13.383333333,
+      "population": 4332834
     },
     {
       "name": "Bielefeld",
@@ -1084,6 +1210,15 @@
       "lat": 53.075833333,
       "lon": 8.807222222,
       "population": 586271
+    },
+    {
+      "name": "Bremen",
+      "country": "Germany",
+      "searchQuery": "Bremen, Germany",
+      "wikidataId": "Q1209",
+      "lat": 53.133333333,
+      "lon": 8.733333333,
+      "population": 693204
     },
     {
       "name": "Bremerhaven",
@@ -1138,6 +1273,15 @@
       "lat": 49.866666666,
       "lon": 8.65,
       "population": 167029
+    },
+    {
+      "name": "Dessau-Roßlau",
+      "country": "Germany",
+      "searchQuery": "Dessau-Roßlau, Germany",
+      "wikidataId": "Q3828",
+      "lat": 51.833333,
+      "lon": 12.233333,
+      "population": 102529
     },
     {
       "name": "Dortmund",
@@ -1302,6 +1446,15 @@
       "population": 180849
     },
     {
+      "name": "Hanau",
+      "country": "Germany",
+      "searchQuery": "Hanau, Germany",
+      "wikidataId": "Q3802",
+      "lat": 50.132777777,
+      "lon": 8.916944444,
+      "population": 103184
+    },
+    {
       "name": "Hanover",
       "country": "Germany",
       "searchQuery": "Hanover, Germany",
@@ -1363,6 +1516,15 @@
       "lat": 50.927222222,
       "lon": 11.586388888,
       "population": 111407
+    },
+    {
+      "name": "Kaiserslautern",
+      "country": "Germany",
+      "searchQuery": "Kaiserslautern, Germany",
+      "wikidataId": "Q3758",
+      "lat": 49.444722222,
+      "lon": 7.768888888,
+      "population": 101486
     },
     {
       "name": "Karlsruhe",
@@ -1489,6 +1651,15 @@
       "lat": 51.4275,
       "lon": 6.8825,
       "population": 189259
+    },
+    {
+      "name": "München",
+      "country": "Germany",
+      "searchQuery": "München, Germany",
+      "wikidataId": "Q32664319",
+      "lat": 48.135,
+      "lon": 11.57066,
+      "population": 1185421
     },
     {
       "name": "Munich",
@@ -1626,6 +1797,15 @@
       "population": 118852
     },
     {
+      "name": "Rostock",
+      "country": "Germany",
+      "searchQuery": "Rostock, Germany",
+      "wikidataId": "Q2861",
+      "lat": 54.083333333,
+      "lon": 12.133333333,
+      "population": 248088
+    },
+    {
       "name": "Saarbrücken",
       "country": "Germany",
       "searchQuery": "Saarbrücken, Germany",
@@ -1743,6 +1923,15 @@
       "population": 133799
     },
     {
+      "name": "Zwickau",
+      "country": "Germany",
+      "searchQuery": "Zwickau, Germany",
+      "wikidataId": "Q3778",
+      "lat": 50.718888888,
+      "lon": 12.496111111,
+      "population": 136000
+    },
+    {
       "name": "Athens",
       "country": "Greece",
       "searchQuery": "Athens, Greece",
@@ -1833,6 +2022,24 @@
       "population": 412160
     },
     {
+      "name": "Budapest",
+      "country": "Hungary",
+      "searchQuery": "Budapest, Hungary",
+      "wikidataId": "Q1781",
+      "lat": 47.498333333,
+      "lon": 19.040833333,
+      "population": 1757618
+    },
+    {
+      "name": "Győr",
+      "country": "Hungary",
+      "searchQuery": "Győr, Hungary",
+      "wikidataId": "Q134494",
+      "lat": 47.684166666,
+      "lon": 17.634444444,
+      "population": 132735
+    },
+    {
       "name": "Kecskemét",
       "country": "Hungary",
       "searchQuery": "Kecskemét, Hungary",
@@ -1876,6 +2083,15 @@
       "lat": 46.25,
       "lon": 20.166666666,
       "population": 161921
+    },
+    {
+      "name": "Tatabánya",
+      "country": "Hungary",
+      "searchQuery": "Tatabánya, Hungary",
+      "wikidataId": "Q187821",
+      "lat": 47.58616,
+      "lon": 18.39485,
+      "population": 100000
     },
     {
       "name": "Reykjavík",
@@ -2967,6 +3183,15 @@
       "population": 116069
     },
     {
+      "name": "Warsaw",
+      "country": "Poland",
+      "searchQuery": "Warsaw, Poland",
+      "wikidataId": "Q270",
+      "lat": 52.23,
+      "lon": 21.011111111,
+      "population": 1862402
+    },
+    {
       "name": "Włocławek",
       "country": "Poland",
       "searchQuery": "Włocławek, Poland",
@@ -3064,6 +3289,15 @@
       "lat": 45.652222222,
       "lon": 25.610555555,
       "population": 363736
+    },
+    {
+      "name": "Bucharest",
+      "country": "Romania",
+      "searchQuery": "Bucharest, Romania",
+      "wikidataId": "Q19660",
+      "lat": 44.413361111,
+      "lon": 26.097777777,
+      "population": 2067000
     },
     {
       "name": "Buzău",
@@ -3451,6 +3685,15 @@
       "lat": 54.533333333,
       "lon": 36.266666666,
       "population": 341986
+    },
+    {
+      "name": "Karachay-Cherkessia",
+      "country": "Russia",
+      "searchQuery": "Karachay-Cherkessia, Russia",
+      "wikidataId": "Q5328",
+      "lat": 43.916666666,
+      "lon": 41.783333333,
+      "population": 468322
     },
     {
       "name": "Kaspiysk",
@@ -4542,6 +4785,15 @@
       "population": 116147
     },
     {
+      "name": "Albacete",
+      "country": "Spain",
+      "searchQuery": "Albacete, Spain",
+      "wikidataId": "Q15095",
+      "lat": 38.995555555,
+      "lon": -1.855833333,
+      "population": 175400
+    },
+    {
       "name": "Albacete City",
       "country": "Spain",
       "searchQuery": "Albacete City, Spain",
@@ -4560,6 +4812,15 @@
       "population": 198975
     },
     {
+      "name": "Alcalá de Henares",
+      "country": "Spain",
+      "searchQuery": "Alcalá de Henares, Spain",
+      "wikidataId": "Q46940",
+      "lat": 40.481815,
+      "lon": -3.364305,
+      "population": 204823
+    },
+    {
       "name": "Alcobendas",
       "country": "Spain",
       "searchQuery": "Alcobendas, Spain",
@@ -4569,6 +4830,24 @@
       "population": 123342
     },
     {
+      "name": "Alcorcón",
+      "country": "Spain",
+      "searchQuery": "Alcorcón, Spain",
+      "wikidataId": "Q10372",
+      "lat": 40.3493217,
+      "lon": -3.8284487,
+      "population": 175719
+    },
+    {
+      "name": "Algeciras",
+      "country": "Spain",
+      "searchQuery": "Algeciras, Spain",
+      "wikidataId": "Q484552",
+      "lat": 36.1275,
+      "lon": -5.453888888,
+      "population": 126589
+    },
+    {
       "name": "Alicante",
       "country": "Spain",
       "searchQuery": "Alicante, Spain",
@@ -4576,6 +4855,15 @@
       "lat": 38.345277777,
       "lon": -0.483055555,
       "population": 366221
+    },
+    {
+      "name": "Almería",
+      "country": "Spain",
+      "searchQuery": "Almería, Spain",
+      "wikidataId": "Q10400",
+      "lat": 36.841666666,
+      "lon": -2.463888888,
+      "population": 205468
     },
     {
       "name": "Almería city",
@@ -4632,6 +4920,33 @@
       "population": 1754900
     },
     {
+      "name": "Bilbao",
+      "country": "Spain",
+      "searchQuery": "Bilbao, Spain",
+      "wikidataId": "Q8692",
+      "lat": 43.263055555,
+      "lon": -2.935,
+      "population": 433030
+    },
+    {
+      "name": "Bonrepòs i Mirambell",
+      "country": "Spain",
+      "searchQuery": "Bonrepòs i Mirambell, Spain",
+      "wikidataId": "Q1312589",
+      "lat": 39.5173822,
+      "lon": -0.3652984,
+      "population": 345497
+    },
+    {
+      "name": "Burgos",
+      "country": "Spain",
+      "searchQuery": "Burgos, Spain",
+      "wikidataId": "Q9580",
+      "lat": 42.340833333,
+      "lon": -3.699722222,
+      "population": 179906
+    },
+    {
       "name": "Burgos city",
       "country": "Spain",
       "searchQuery": "Burgos city, Spain",
@@ -4641,6 +4956,15 @@
       "population": 168672
     },
     {
+      "name": "Cádiz",
+      "country": "Spain",
+      "searchQuery": "Cádiz, Spain",
+      "wikidataId": "Q15682",
+      "lat": 36.535,
+      "lon": -6.2975,
+      "population": 137971
+    },
+    {
       "name": "Cádiz City",
       "country": "Spain",
       "searchQuery": "Cádiz City, Spain",
@@ -4648,6 +4972,15 @@
       "lat": 36.52171152,
       "lon": -6.28414575,
       "population": 111811
+    },
+    {
+      "name": "Cartagena",
+      "country": "Spain",
+      "searchQuery": "Cartagena, Spain",
+      "wikidataId": "Q162615",
+      "lat": 37.601944444,
+      "lon": -0.984166666,
+      "population": 220704
     },
     {
       "name": "Castellón de la Plana",
@@ -4677,6 +5010,33 @@
       "population": 290022
     },
     {
+      "name": "Córdoba",
+      "country": "Spain",
+      "searchQuery": "Córdoba, Spain",
+      "wikidataId": "Q5818",
+      "lat": 37.89,
+      "lon": -4.78,
+      "population": 328841
+    },
+    {
+      "name": "Dos Hermanas",
+      "country": "Spain",
+      "searchQuery": "Dos Hermanas, Spain",
+      "wikidataId": "Q489205",
+      "lat": 37.283611111,
+      "lon": -5.922222222,
+      "population": 142519
+    },
+    {
+      "name": "Elche",
+      "country": "Spain",
+      "searchQuery": "Elche, Spain",
+      "wikidataId": "Q10509",
+      "lat": 38.266944444,
+      "lon": -0.698333333,
+      "population": 245557
+    },
+    {
       "name": "Elche City",
       "country": "Spain",
       "searchQuery": "Elche City, Spain",
@@ -4684,6 +5044,15 @@
       "lat": 38.26905,
       "lon": -0.70797,
       "population": 193077
+    },
+    {
+      "name": "Fuenlabrada",
+      "country": "Spain",
+      "searchQuery": "Fuenlabrada, Spain",
+      "wikidataId": "Q54902",
+      "lat": 40.283333333,
+      "lon": -3.8,
+      "population": 198973
     },
     {
       "name": "Getafe",
@@ -4695,6 +5064,15 @@
       "population": 156358
     },
     {
+      "name": "Getafe",
+      "country": "Spain",
+      "searchQuery": "Getafe, Spain",
+      "wikidataId": "Q8802",
+      "lat": 40.3,
+      "lon": -3.716666666,
+      "population": 193238
+    },
+    {
       "name": "Girona",
       "country": "Spain",
       "searchQuery": "Girona, Spain",
@@ -4704,6 +5082,24 @@
       "population": 104192
     },
     {
+      "name": "Granada",
+      "country": "Spain",
+      "searchQuery": "Granada, Spain",
+      "wikidataId": "Q8810",
+      "lat": 37.175,
+      "lon": -3.6,
+      "population": 262000
+    },
+    {
+      "name": "Huelva",
+      "country": "Spain",
+      "searchQuery": "Huelva, Spain",
+      "wikidataId": "Q12246",
+      "lat": 37.25,
+      "lon": -6.95,
+      "population": 149310
+    },
+    {
       "name": "Jaén",
       "country": "Spain",
       "searchQuery": "Jaén, Spain",
@@ -4711,6 +5107,24 @@
       "lat": 37.7651913,
       "lon": -3.7903594,
       "population": 111669
+    },
+    {
+      "name": "Jaén",
+      "country": "Spain",
+      "searchQuery": "Jaén, Spain",
+      "wikidataId": "Q15681",
+      "lat": 37.769722222,
+      "lon": -3.788888888,
+      "population": 116790
+    },
+    {
+      "name": "Jerez de la Frontera",
+      "country": "Spain",
+      "searchQuery": "Jerez de la Frontera, Spain",
+      "wikidataId": "Q12303",
+      "lat": 36.7,
+      "lon": -6.116666666,
+      "population": 213688
     },
     {
       "name": "L'Hospitalet de Llobregat",
@@ -4731,6 +5145,15 @@
       "population": 297682
     },
     {
+      "name": "Las Palmas de Gran Canaria",
+      "country": "Spain",
+      "searchQuery": "Las Palmas de Gran Canaria, Spain",
+      "wikidataId": "Q11974",
+      "lat": 28.127222222,
+      "lon": -15.431388888,
+      "population": 383343
+    },
+    {
       "name": "Leganés",
       "country": "Spain",
       "searchQuery": "Leganés, Spain",
@@ -4749,6 +5172,15 @@
       "population": 115184
     },
     {
+      "name": "León",
+      "country": "Spain",
+      "searchQuery": "León, Spain",
+      "wikidataId": "Q15699",
+      "lat": 42.598888888,
+      "lon": -5.566944444,
+      "population": 145000
+    },
+    {
       "name": "Logroño",
       "country": "Spain",
       "searchQuery": "Logroño, Spain",
@@ -4756,6 +5188,24 @@
       "lat": 42.46644945,
       "lon": -2.44565538,
       "population": 150503
+    },
+    {
+      "name": "Logroño",
+      "country": "Spain",
+      "searchQuery": "Logroño, Spain",
+      "wikidataId": "Q14325",
+      "lat": 42.47,
+      "lon": -2.445555555,
+      "population": 153402
+    },
+    {
+      "name": "Madrid",
+      "country": "Spain",
+      "searchQuery": "Madrid, Spain",
+      "wikidataId": "Q2807",
+      "lat": 40.416944444,
+      "lon": -3.703333333,
+      "population": 3506730
     },
     {
       "name": "Madrid city",
@@ -4767,6 +5217,15 @@
       "population": 3332035
     },
     {
+      "name": "Málaga",
+      "country": "Spain",
+      "searchQuery": "Málaga, Spain",
+      "wikidataId": "Q8851",
+      "lat": 36.716666666,
+      "lon": -4.416666666,
+      "population": 603144
+    },
+    {
       "name": "Málaga City",
       "country": "Spain",
       "searchQuery": "Málaga City, Spain",
@@ -4774,6 +5233,15 @@
       "lat": 36.72016,
       "lon": -4.42034,
       "population": 543392
+    },
+    {
+      "name": "Marbella",
+      "country": "Spain",
+      "searchQuery": "Marbella, Spain",
+      "wikidataId": "Q484799",
+      "lat": 36.511363888,
+      "lon": -4.883441666,
+      "population": 159786
     },
     {
       "name": "Móstoles",
@@ -4785,6 +5253,15 @@
       "population": 214817
     },
     {
+      "name": "Murcia",
+      "country": "Spain",
+      "searchQuery": "Murcia, Spain",
+      "wikidataId": "Q12225",
+      "lat": 37.983333333,
+      "lon": -1.130277777,
+      "population": 479405
+    },
+    {
       "name": "Murcia City",
       "country": "Spain",
       "searchQuery": "Murcia City, Spain",
@@ -4792,6 +5269,15 @@
       "lat": 37.983399,
       "lon": -1.130423,
       "population": 170246
+    },
+    {
+      "name": "Orihuela",
+      "country": "Spain",
+      "searchQuery": "Orihuela, Spain",
+      "wikidataId": "Q487786",
+      "lat": 38.085555555,
+      "lon": -0.946944444,
+      "population": 101321
     },
     {
       "name": "Oviedo City",
@@ -4812,6 +5298,24 @@
       "population": 434786
     },
     {
+      "name": "Pamplona",
+      "country": "Spain",
+      "searchQuery": "Pamplona, Spain",
+      "wikidataId": "Q10282",
+      "lat": 42.816666666,
+      "lon": -1.65,
+      "population": 209094
+    },
+    {
+      "name": "Parla",
+      "country": "Spain",
+      "searchQuery": "Parla, Spain",
+      "wikidataId": "Q824651",
+      "lat": 40.237222222,
+      "lon": -3.774166666,
+      "population": 137471
+    },
+    {
       "name": "Q137822381",
       "country": "Spain",
       "searchQuery": "Q137822381, Spain",
@@ -4821,6 +5325,24 @@
       "population": 141478
     },
     {
+      "name": "Rivas-Vaciamadrid",
+      "country": "Spain",
+      "searchQuery": "Rivas-Vaciamadrid, Spain",
+      "wikidataId": "Q644481",
+      "lat": 40.339444444,
+      "lon": -3.518055555,
+      "population": 103148
+    },
+    {
+      "name": "Roquetas de Mar",
+      "country": "Spain",
+      "searchQuery": "Roquetas de Mar, Spain",
+      "wikidataId": "Q499184",
+      "lat": 36.781388888,
+      "lon": -2.614722222,
+      "population": 111240
+    },
+    {
       "name": "Sabadell",
       "country": "Spain",
       "searchQuery": "Sabadell, Spain",
@@ -4828,6 +5350,15 @@
       "lat": 41.548333333,
       "lon": 2.1075,
       "population": 225368
+    },
+    {
+      "name": "Salamanca",
+      "country": "Spain",
+      "searchQuery": "Salamanca, Spain",
+      "wikidataId": "Q15695",
+      "lat": 40.965,
+      "lon": -5.664166666,
+      "population": 160415
     },
     {
       "name": "Salamanca City",
@@ -4848,6 +5379,15 @@
       "population": 161108
     },
     {
+      "name": "San Sebastián",
+      "country": "Spain",
+      "searchQuery": "San Sebastián, Spain",
+      "wikidataId": "Q10313",
+      "lat": 43.32,
+      "lon": -1.98,
+      "population": 189866
+    },
+    {
       "name": "Santa Cruz de Tenerife",
       "country": "Spain",
       "searchQuery": "Santa Cruz de Tenerife, Spain",
@@ -4855,6 +5395,24 @@
       "lat": 28.46285408,
       "lon": -16.24720629,
       "population": 147522
+    },
+    {
+      "name": "Santa Cruz de Tenerife",
+      "country": "Spain",
+      "searchQuery": "Santa Cruz de Tenerife, Spain",
+      "wikidataId": "Q14328",
+      "lat": 28.466666666,
+      "lon": -16.25,
+      "population": 223148
+    },
+    {
+      "name": "Santander",
+      "country": "Spain",
+      "searchQuery": "Santander, Spain",
+      "wikidataId": "Q12233",
+      "lat": 43.466666666,
+      "lon": -3.8,
+      "population": 185231
     },
     {
       "name": "Santander City",
@@ -4866,6 +5424,15 @@
       "population": 126288
     },
     {
+      "name": "Seville",
+      "country": "Spain",
+      "searchQuery": "Seville, Spain",
+      "wikidataId": "Q8717",
+      "lat": 37.388611111,
+      "lon": -5.995555555,
+      "population": 704857
+    },
+    {
       "name": "Seville city",
       "country": "Spain",
       "searchQuery": "Seville city, Spain",
@@ -4873,6 +5440,15 @@
       "lat": 37.38620512,
       "lon": -5.99251368,
       "population": 684025
+    },
+    {
+      "name": "Telde",
+      "country": "Spain",
+      "searchQuery": "Telde, Spain",
+      "wikidataId": "Q55845",
+      "lat": 27.9984538,
+      "lon": -15.4166761,
+      "population": 123265
     },
     {
       "name": "Terrassa",
@@ -4884,6 +5460,42 @@
       "population": 233270
     },
     {
+      "name": "Torrejón de Ardoz",
+      "country": "Spain",
+      "searchQuery": "Torrejón de Ardoz, Spain",
+      "wikidataId": "Q489839",
+      "lat": 40.45,
+      "lon": -3.483055555,
+      "population": 143526
+    },
+    {
+      "name": "Torrevieja",
+      "country": "Spain",
+      "searchQuery": "Torrevieja, Spain",
+      "wikidataId": "Q221749",
+      "lat": 37.977777777,
+      "lon": -0.683333333,
+      "population": 105205
+    },
+    {
+      "name": "Valencia",
+      "country": "Spain",
+      "searchQuery": "Valencia, Spain",
+      "wikidataId": "Q8818",
+      "lat": 39.47,
+      "lon": -0.376388888,
+      "population": 840792
+    },
+    {
+      "name": "Valladolid",
+      "country": "Spain",
+      "searchQuery": "Valladolid, Spain",
+      "wikidataId": "Q8356",
+      "lat": 41.651980555,
+      "lon": -4.728561111,
+      "population": 321713
+    },
+    {
       "name": "Valladolid city",
       "country": "Spain",
       "searchQuery": "Valladolid city, Spain",
@@ -4891,6 +5503,33 @@
       "lat": 41.6523,
       "lon": -4.72854,
       "population": 292426
+    },
+    {
+      "name": "Vélez de Benaudalla",
+      "country": "Spain",
+      "searchQuery": "Vélez de Benaudalla, Spain",
+      "wikidataId": "Q619690",
+      "lat": 36.831944444,
+      "lon": -3.516111111,
+      "population": 654456
+    },
+    {
+      "name": "Vélez-Rubio",
+      "country": "Spain",
+      "searchQuery": "Vélez-Rubio, Spain",
+      "wikidataId": "Q1110343",
+      "lat": 37.6489587,
+      "lon": -2.0764057,
+      "population": 2012345
+    },
+    {
+      "name": "Vitoria-Gasteiz",
+      "country": "Spain",
+      "searchQuery": "Vitoria-Gasteiz, Spain",
+      "wikidataId": "Q14318",
+      "lat": 42.846666666,
+      "lon": -2.673055555,
+      "population": 260699
     },
     {
       "name": "Xixón City",
@@ -4909,6 +5548,15 @@
       "lat": 41.65645655,
       "lon": -0.87928652,
       "population": 666880
+    },
+    {
+      "name": "Zaragoza",
+      "country": "Spain",
+      "searchQuery": "Zaragoza, Spain",
+      "wikidataId": "Q10305",
+      "lat": 41.65,
+      "lon": -0.883333333,
+      "population": 732765
     },
     {
       "name": "Gothenburg",
@@ -4992,6 +5640,15 @@
       "population": 178999
     },
     {
+      "name": "Canton of Basel-Stadt",
+      "country": "Switzerland",
+      "searchQuery": "Canton of Basel-Stadt, Switzerland",
+      "wikidataId": "Q12172",
+      "lat": 47.566666666,
+      "lon": 7.6,
+      "population": 201917
+    },
+    {
       "name": "Geneva",
       "country": "Switzerland",
       "searchQuery": "Geneva, Switzerland",
@@ -5017,6 +5674,15 @@
       "lat": 47.4992,
       "lon": 8.72671,
       "population": 120376
+    },
+    {
+      "name": "Zurich",
+      "country": "Switzerland",
+      "searchQuery": "Zurich, Switzerland",
+      "wikidataId": "Q72",
+      "lat": 47.374444444,
+      "lon": 8.541111111,
+      "population": 452421
     },
     {
       "name": "Akhisar",
@@ -6333,5 +6999,10 @@
       "population": 208400
     }
   ],
-  "failures": []
+  "merge": {
+    "previousCount": 773,
+    "fetchedNew": 4,
+    "fetchedSkipped": 0,
+    "backfillIds": 4
+  }
 }

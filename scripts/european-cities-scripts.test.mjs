@@ -20,8 +20,53 @@ describe("buildEuropeanCitiesSparql", () => {
     it("requires settlement types and excludes admin divisions", () => {
         const query = buildEuropeanCitiesSparql("Q183", 100_000);
         expect(query).toContain("wd:Q515");
+        expect(query).toContain("wd:Q200250");
+        expect(query).toContain("wd:Q2074737");
         expect(query).toContain("wd:Q6256");
         expect(query).toContain("?population < 20000000");
+    });
+});
+
+describe("mergeEuropeanCityRows", () => {
+    it("keeps existing rows and adds only new wikidata ids", async () => {
+        const { mergeEuropeanCityRows } = await import("./generate-european-cities-list.mjs");
+        const merged = mergeEuropeanCityRows(
+            [
+                {
+                    name: "Paris",
+                    country: "France",
+                    searchQuery: "Paris, France",
+                    wikidataId: "Q90",
+                    lat: 1,
+                    lon: 2,
+                    population: 2_000_000,
+                },
+            ],
+            [
+                {
+                    name: "Paris",
+                    country: "France",
+                    searchQuery: "Paris, France",
+                    wikidataId: "Q90",
+                    lat: 9,
+                    lon: 9,
+                    population: 9_000_000,
+                },
+                {
+                    name: "Sofia",
+                    country: "Bulgaria",
+                    searchQuery: "Sofia, Bulgaria",
+                    wikidataId: "Q472",
+                    lat: 3,
+                    lon: 4,
+                    population: 1_200_000,
+                },
+            ],
+        );
+        expect(merged.added).toBe(1);
+        expect(merged.skipped).toBe(1);
+        expect(merged.cities).toHaveLength(2);
+        expect(merged.cities.find((city) => city.wikidataId === "Q90")?.lat).toBe(1);
     });
 });
 
