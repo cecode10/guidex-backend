@@ -1,40 +1,15 @@
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import {
     logExternalApiRequest,
     logExternalApiResponse,
-    logExternalApiCacheHit,
 } from "./external-api-debug.mjs";
 import {
-    COLLECTION,
-    MAX_NEARBY_RESULTS,
-    POPULAR_AROUND_SUBCOLLECTION,
     countryCodeFromGeocodeResult,
     deriveGeoLocationLabel,
-    enrichPlacesWithWikidataIds,
     flagFromIsoCode,
     geoLocationPopularKeyFromCoords,
-    isPopularPlaceImageCached,
-    isValidWikidataId,
-    mostPopularAroundFromPlaces,
-    patchPopularPlaceImage,
-    patchPopularPlaceWikidataId,
-    geoLocationCacheSourceForWrite,
-    GEO_LOCATION_CACHE_SOURCE,
-    popularPlaceDocFromPlace,
-    popularPlaceFromDoc,
 } from "./geo-location-utils.mjs";
-import {
-    NEARBY_RADIUS_KM,
-    SPARQL_PROFILE,
-    fetchWikidataNearbyPopularPlaces,
-    normalizeSparqlProfile,
-    sparqlProfileMatchesCache,
-} from "./wikidata-nearby-utils.mjs";
-import {
-    TransientUpstreamError,
-    ensurePlaceImageInFirestore,
-    isWikimediaImageUrl,
-} from "./handlers/resolve-place-image.mjs";
+import { NEARBY_RADIUS_KM } from "./places-lookup-utils.mjs";
+import { resolveExplorePopularPlacesFromDb } from "./sightseeing-query.mjs";
 
 export const GOOGLE_GEOCODE_TIMEOUT_MS = 12_000;
 export const GOOGLE_REVERSE_GEOCODE_TIMEOUT_MS = 12_000;
@@ -121,170 +96,9 @@ export const fetchGoogleReverseGeocode = async (lat, lng, language, apiKey) => {
 };
 
 /**
- * @param {import("firebase-admin/firestore").Firestore} db
- * @param {string} key
- * @returns {Promise<Array<Record<string, unknown>>>}
- */
-export const readPopularAroundList = async (db, key) => {
-    const snap = await db
-        .collection(COLLECTION)
-        .doc(key)
-        .collection(POPULAR_AROUND_SUBCOLLECTION)
-        .orderBy("order")
-        .get();
-
-    return snap.docs.map((doc) => popularPlaceFromDoc(doc.data()));
-};
-
-/**
- * @param {import("firebase-admin/firestore").DocumentReference} docRef
- * @param {Array<Record<string, unknown>>} places
- * @param {import("firebase-admin/firestore").FieldValue} now
- */
-export const writePopularAroundList = async (docRef, places, now) => {
-    const subRef = docRef.collection(POPULAR_AROUND_SUBCOLLECTION);
-    const existing = await subRef.get();
-    const batch = docRef.firestore.batch();
-
-    for (const doc of existing.docs) {
-        batch.delete(doc.ref);
-    }
-
-    places.forEach((place, index) => {
-        const id = String(index).padStart(3, "0");
-        batch.set(subRef.doc(id), {
-            ...popularPlaceDocFromPlace(place, index),
-            updatedAt: now,
-        });
-    });
-
-    await batch.commit();
-};
-
-/**
- * @param {import("firebase-admin/firestore").Firestore} db
- * @param {string} geoLocationKey
- * @param {Array<Record<string, unknown>>} places
- * @param {typeof fetch} [fetchImpl]
- * @returns {Promise<Array<Record<string, unknown>>>}
- */
-export const reconcileCachedPopularPlaces = async (
-    db,
-    geoLocationKey,
-    places,
-    fetchImpl = fetch,
-) => {
-    if (!places.length) return places;
-
-    const missingQidOrders = new Set(
-        places
-            .filter((place) => !isValidWikidataId(place.wikidataId))
-            .map((place) => place.order)
-            .filter((order) => Number.isInteger(order)),
-    );
-    if (missingQidOrders.size === 0) {
-        logExternalApiCacheHit("geo-location-popular-enrichment", {
-            key: geoLocationKey,
-            detail: `places=${places.length} all wikidataIds present`,
-            skippedProviders: ["wikidata", "wikipedia", "wikimedia"],
-        });
-        return places;
-    }
-
-    let updated = places.map((place) => ({ ...place }));
-    const toEnrich = updated.filter((place) => missingQidOrders.has(place.order));
-    const enriched = await enrichPlacesWithWikidataIds(toEnrich, fetchImpl);
-
-    for (let i = 0; i < toEnrich.length; i++) {
-        const order = toEnrich[i].order;
-        const qid = enriched[i]?.wikidataId;
-        if (!Number.isInteger(order) || !isValidWikidataId(qid)) continue;
-
-        const idx = updated.findIndex((place) => place.order === order);
-        if (idx >= 0) {
-            updated[idx] = { ...updated[idx], wikidataId: qid };
-        }
-    }
-
-    for (const place of updated) {
-        if (!missingQidOrders.has(place.order) || !Number.isInteger(place.order)) continue;
-
-        const original = places.find((entry) => entry.order === place.order) ?? place;
-        const resolvedQid = isValidWikidataId(place.wikidataId)
-            ? String(place.wikidataId).trim()
-            : null;
-
-        if (resolvedQid && resolvedQid !== original.wikidataId) {
-            await patchPopularPlaceWikidataId(db, {
-                geoLocationKey,
-                popularPlaceOrder: place.order,
-                wikidataId: resolvedQid,
-            });
-        }
-
-        if (!resolvedQid || isPopularPlaceImageCached(place)) continue;
-
-        const name = String(place.name ?? "").trim();
-        if (!name) continue;
-
-        const hintImageUrl =
-            typeof place.image === "string" &&
-            place.image.trim() &&
-            !place.storageUrl &&
-            isWikimediaImageUrl(place.image)
-                ? place.image.trim()
-                : null;
-        const wikipediaUrl =
-            typeof place.wikipediaUrl === "string" && place.wikipediaUrl.trim()
-                ? place.wikipediaUrl.trim()
-                : null;
-
-        try {
-            const imageResult = await ensurePlaceImageInFirestore(
-                db,
-                {
-                    wikidataId: resolvedQid,
-                    name,
-                    hintImageUrl,
-                    wikipediaUrl,
-                },
-                fetchImpl,
-            );
-
-            await patchPopularPlaceImage(db, {
-                geoLocationKey,
-                popularPlaceOrder: place.order,
-                wikidataId: imageResult.wikidataId ?? resolvedQid,
-                storageUrl: imageResult.storageUrl ?? null,
-                imageStatus: imageResult.imageStatus,
-            });
-
-            const idx = updated.findIndex((entry) => entry.order === place.order);
-            if (idx >= 0) {
-                updated[idx] = {
-                    ...updated[idx],
-                    wikidataId: imageResult.wikidataId ?? resolvedQid,
-                    storageUrl: imageResult.storageUrl ?? null,
-                    imageStatus: imageResult.imageStatus,
-                    image: imageResult.storageUrl ?? updated[idx].image,
-                };
-            }
-        } catch (error) {
-            if (error instanceof TransientUpstreamError) {
-                console.warn(
-                    `[explore-popular] reconcile image transient for order ${place.order}: ${error.message}`,
-                );
-                continue;
-            }
-            throw error;
-        }
-    }
-
-    return updated;
-};
-
-/**
  * @param {Record<string, unknown>} best
+ * @param {number} fallbackLat
+ * @param {number} fallbackLng
  * @returns {{
  *   label: string,
  *   city: string,
@@ -337,28 +151,9 @@ export const explorePopularHttpStatus = (error) => {
 };
 
 /**
- * Picks the SPARQL profile for a cache write. Prevents a fast re-fetch from
- * downgrading a batch-seeded quality cache (e.g. pull-to-refresh on old builds).
- *
- * @param {string | undefined} requestedProfile
- * @param {Record<string, unknown> | null | undefined} existingData
- * @returns {typeof SPARQL_PROFILE.FAST | typeof SPARQL_PROFILE.QUALITY}
- */
-export const resolveSparqlProfileForCacheWrite = (requestedProfile, existingData) => {
-    const requested = normalizeSparqlProfile(requestedProfile);
-    const existing = existingData?.sparqlProfile;
-    if (
-        requested === SPARQL_PROFILE.FAST &&
-        existing === SPARQL_PROFILE.QUALITY &&
-        existingData?.cacheSource === GEO_LOCATION_CACHE_SOURCE.BATCH_SEED
-    ) {
-        return SPARQL_PROFILE.QUALITY;
-    }
-    return requested;
-};
-
-/**
- * Loads or resolves popular places for a geo-location cache key.
+ * Loads popular places for a geo anchor from PostGIS (Europe sightseeing table).
+ * Keeps the historical function name for callers; Firestore geo-location cache
+ * and live Wikidata SPARQL are no longer used on the request path.
  *
  * @param {{
  *   functionName: string,
@@ -374,8 +169,8 @@ export const resolveSparqlProfileForCacheWrite = (requestedProfile, existingData
  *   resolvedLat: number,
  *   resolvedLng: number,
  *   forceRefresh?: boolean,
- *   language: string,
- *   apiKey: string,
+ *   language?: string,
+ *   apiKey?: string,
  *   cacheSource?: string,
  *   sparqlProfile?: string,
  *   sparqlTimeoutMs?: number,
@@ -385,175 +180,20 @@ export const resolveSparqlProfileForCacheWrite = (requestedProfile, existingData
  * }} options
  * @returns {Promise<{ key: string, label: string, lat: number, lon: number, places: Array<Record<string, unknown>>, radiusKm: number, cached: boolean }>}
  */
-export const resolveExplorePopularPlaces = async ({
-    functionName,
-    key,
-    lat,
-    lng,
-    radiusKm,
-    searchQuery = "",
-    label,
-    city,
-    countryCode = null,
-    countryFlag,
-    resolvedLat,
-    resolvedLng,
-    forceRefresh = false,
-    language,
-    apiKey,
-    cacheSource,
-    sparqlProfile = SPARQL_PROFILE.FAST,
-    sparqlTimeoutMs,
-    sparqlMaxAttempts,
-    sparqlRadiusKm,
-    sparqlFetchLimit,
-}) => {
-    const db = getFirestore();
-    const docRef = db.collection(COLLECTION).doc(key);
-    const existing = await docRef.get();
-    const existingData = existing.exists ? existing.data() : null;
-    const trimmedSearchQuery = String(searchQuery || "").trim();
-    const flag = countryFlag ?? flagFromIsoCode(countryCode ?? "");
-    const resolvedSparqlProfile = resolveSparqlProfileForCacheWrite(
-        sparqlProfile,
-        existingData,
-    );
-
-    if (!forceRefresh && existing.exists) {
-        const cachedPlaces = await readPopularAroundList(db, key);
-        if (cachedPlaces.length > 0) {
-            const places = await reconcileCachedPopularPlaces(db, key, cachedPlaces);
-            logExternalApiCacheHit("geo-location-popular", {
-                key,
-                detail:
-                    `places=${places.length}` +
-                    (trimmedSearchQuery ? ` searchQuery="${trimmedSearchQuery}"` : "") +
-                    ` radiusKm=${radiusKm}`,
-                skippedProviders: trimmedSearchQuery
-                    ? ["wikidata-sparql"]
-                    : ["wikidata", "wikipedia", "wikimedia"],
-            });
-            console.log(`[${functionName}] cache hit ${key} (${places.length} places)`);
-            return {
-                key,
-                label,
-                lat: existing.data()?.lat ?? resolvedLat,
-                lon: existing.data()?.lon ?? resolvedLng,
-                places,
-                radiusKm,
-                cached: true,
-            };
-        }
-    }
-
-    console.log(
-        `[${functionName}] cache miss ${key} lat=${lat} lng=${lng} radiusKm=${radiusKm}` +
-            ` profile=${resolvedSparqlProfile}` +
-            (trimmedSearchQuery ? ` searchQuery="${trimmedSearchQuery}"` : ""),
-    );
-
-    let sparqlFailed = false;
-    let places;
-    try {
-        places = await fetchWikidataNearbyPopularPlaces(lat, lng, {
-            city,
-            countryCode,
-            countryFlag: flag,
-            limit: MAX_NEARBY_RESULTS,
-            radiusKm,
-            globalSearch: Boolean(trimmedSearchQuery),
-            sparqlProfile: resolvedSparqlProfile,
-            sparqlTimeoutMs,
-            sparqlMaxAttempts,
-            sparqlRadiusKm,
-            sparqlFetchLimit,
-        });
-    } catch (error) {
-        if (trimmedSearchQuery && error?.name === "WikidataSparqlTransientError") {
-            sparqlFailed = true;
-            places = [];
-            console.warn(
-                `[${functionName}] SPARQL failed for ${key}, returning empty search results`,
-            );
-        } else {
-            throw error;
-        }
-    }
-    if (trimmedSearchQuery && sparqlFailed && places.length === 0) {
-        console.log(
-            `[${functionName}] empty search fallback ${key} (SPARQL failed, not cached)`,
-        );
-        return {
-            key,
-            label,
-            lat: resolvedLat,
-            lon: resolvedLng,
-            places,
-            radiusKm,
-            cached: false,
-            partial: true,
-        };
-    }
-
-    const existingPlaces = existing.exists ? await readPopularAroundList(db, key) : [];
-    if (
-        existingPlaces.length > 0 &&
-        places.length < existingPlaces.length &&
-        resolvedSparqlProfile === SPARQL_PROFILE.FAST
-    ) {
-        console.warn(
-            `[${functionName}] blocked cache downgrade ${key}: ` +
-                `${existingPlaces.length} -> ${places.length} places (profile=${resolvedSparqlProfile})`,
-        );
-        const reconciled = await reconcileCachedPopularPlaces(db, key, existingPlaces);
-        return {
-            key,
-            label,
-            lat: existing.data()?.lat ?? resolvedLat,
-            lon: existing.data()?.lon ?? resolvedLng,
-            places: reconciled,
-            radiusKm,
-            cached: true,
-        };
-    }
-
-    const now = FieldValue.serverTimestamp();
-    const resolvedCacheSource = geoLocationCacheSourceForWrite(existingData, cacheSource);
-    /** @type {Record<string, unknown>} */
-    const parentDoc = {
-        key,
-        label,
-        lat: resolvedLat,
-        lon: resolvedLng,
-        mostPopularAround: mostPopularAroundFromPlaces(places),
-        createdAt: existing.exists ? existingData?.createdAt ?? now : now,
-        updatedAt: now,
-    };
-    if (resolvedCacheSource) {
-        parentDoc.cacheSource = resolvedCacheSource;
-    }
-    parentDoc.sparqlProfile = resolvedSparqlProfile;
-    parentDoc.placeCount = places.length;
-    if (sparqlRadiusKm != null && sparqlRadiusKm !== radiusKm) {
-        parentDoc.sparqlRadiusKm = sparqlRadiusKm;
-    }
-    if (sparqlFetchLimit != null) {
-        parentDoc.sparqlFetchLimit = sparqlFetchLimit;
-    }
-    await writePopularAroundList(docRef, places, now);
-    await docRef.set(parentDoc, { merge: true });
-
-    console.log(`[${functionName}] resolved ${key} (${places.length} places)`);
-    return {
-        key,
-        label,
-        lat: resolvedLat,
-        lon: resolvedLng,
-        places,
-        radiusKm,
-        cached: false,
-    };
-};
+export const resolveExplorePopularPlaces = async (options) =>
+    resolveExplorePopularPlacesFromDb({
+        functionName: options.functionName,
+        key: options.key,
+        lat: options.lat,
+        lng: options.lng,
+        radiusKm: options.radiusKm,
+        label: options.label,
+        city: options.city,
+        countryCode: options.countryCode,
+        countryFlag: options.countryFlag,
+        resolvedLat: options.resolvedLat,
+        resolvedLng: options.resolvedLng,
+    });
 
 export {
     geoLocationPopularKeyFromCoords,

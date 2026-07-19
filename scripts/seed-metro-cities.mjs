@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * LEGACY — Firestore metro geo-location seeder.
+ *
+ * Prefer `scripts/seed-europe-sightseeing.mjs` (PostGIS) for Explore/check-in.
+ *
  * Seeds dense metro cities with a lighter Wikidata query:
  * - SPARQL radius: 5 km (metro fallback)
  * - fetchLimit: 75

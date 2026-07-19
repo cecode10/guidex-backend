@@ -2,7 +2,10 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { requireAuth } from "../auth.mjs";
 import { validateMandatoryFields } from "../event-utils.mjs";
-import { geocodingLanguageFromAppLanguage, popularSearchRadiusKmFromGeocodeTypes } from "../geocode-anchor-utils.mjs";
+import {
+    geocodingLanguageFromAppLanguage,
+    popularSearchRadiusKmFromGeocodeTypes,
+} from "../geocode-anchor-utils.mjs";
 import {
     fetchGoogleGeocode,
     fetchGoogleReverseGeocode,
@@ -10,13 +13,9 @@ import {
     geoLocationPopularKeyFromCoords,
     geoMetadataFromGeocodeResult,
     explorePopularHttpStatus,
-    resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
-import { GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
-import {
-    SPARQL_PROFILE,
-    WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
-} from "../wikidata-nearby-utils.mjs";
+import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
+import { resolveExplorePopularPlacesFromDb } from "../sightseeing-query.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveGlobalSearchPopular";
@@ -24,17 +23,14 @@ const MIN_QUERY_LEN = 2;
 const MAX_QUERY_LEN = 200;
 
 /**
- * Cloud Function: free-form Explore search. Forward-geocodes the query on the
- * server, then reads/writes `geo-location/{lat}_{lng}_r{radius}/popularAroundList`.
+ * Cloud Function: free-form Explore search (geocode query, then PostGIS radius).
  */
 export const resolveGlobalSearchPopular = onRequest(
-    {
-        cors: true,
-        region: "europe-west3",
-        timeoutSeconds: 120,
+    sightseeingHttpsOptions({
+        timeoutSeconds: 60,
         memory: "512MiB",
         secrets: [googleMapsApiKey],
-    },
+    }),
     async (req, res) => {
         const start = Date.now();
         try {
@@ -49,7 +45,6 @@ export const resolveGlobalSearchPopular = onRequest(
                 throw err;
             }
 
-            const forceRefresh = payload.forceRefresh === true;
             const language = geocodingLanguageFromAppLanguage(payload.language);
             const apiKey = googleMapsApiKey.value();
 
@@ -108,25 +103,18 @@ export const resolveGlobalSearchPopular = onRequest(
             const { label, city, countryCode, countryFlag, resolvedLat, resolvedLng } =
                 geoMetadataFromGeocodeResult(geocodeBest, lat, lng);
 
-            const result = await resolveExplorePopularPlaces({
+            const result = await resolveExplorePopularPlacesFromDb({
                 functionName: FUNCTION_NAME,
                 key,
                 lat,
                 lng,
                 radiusKm,
-                searchQuery: query,
                 label,
                 city,
                 countryCode,
                 countryFlag,
                 resolvedLat,
                 resolvedLng,
-                forceRefresh,
-                language,
-                apiKey,
-                cacheSource: GEO_LOCATION_CACHE_SOURCE.USER,
-                sparqlProfile: SPARQL_PROFILE.QUALITY,
-                sparqlTimeoutMs: WIKIDATA_SPARQL_QUALITY_TIMEOUT_MS,
             });
 
             const elapsed = Date.now() - start;
@@ -138,9 +126,6 @@ export const resolveGlobalSearchPopular = onRequest(
             const elapsed = Date.now() - start;
             const statusCode = explorePopularHttpStatus(error);
             console.error(`[${FUNCTION_NAME}] error after ${elapsed}ms:`, error?.message || error);
-            if (error?.extra) {
-                console.error(`[${FUNCTION_NAME}] sparql context: ${error.extra}`);
-            }
             return res
                 .status(statusCode)
                 .json({ error: statusCode === 401 ? "unauthorized" : error?.message || "failed" });

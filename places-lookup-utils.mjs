@@ -7,18 +7,18 @@ import { flagFromIsoCode } from "./geo-location-utils.mjs";
 /** Whitelisted Wikidata `instance of` (P31) categories for Explore / check-in. */
 export const SPARQL_POI_CATEGORIES = `
     wd:Q570116 wd:Q2319498 wd:Q4989906 wd:Q9259 wd:Q1081138 wd:Q839954 wd:Q109607
-    wd:Q358 wd:Q35112127 wd:Q811165
+    wd:Q35112127 wd:Q811165
     wd:Q907116 wd:Q916475 wd:Q10387684 wd:Q10387575 wd:Q121871437 wd:Q11691318
     wd:Q570600 wd:Q916333 wd:Q624232 wd:Q29048696
     wd:Q23413 wd:Q16560 wd:Q751876 wd:Q57831 wd:Q1785071 wd:Q57821 wd:Q879050 wd:Q3950
     wd:Q2977 wd:Q56242215 wd:Q16970 wd:Q32815 wd:Q34627 wd:Q44539 wd:Q267596 wd:Q1370598
-    wd:Q163687 wd:Q120560 wd:Q133747929 wd:Q108325 wd:Q1128397 wd:Q44613 wd:Q160742 wd:Q3615570
-    wd:Q12518 wd:Q5191724 wd:Q72926449 wd:Q797765
-    wd:Q12280 wd:Q158438 wd:Q3397526 wd:Q82117 wd:Q39715 wd:Q483453 wd:Q811979
-    wd:Q8502 wd:Q22698 wd:Q46169 wd:Q35509 wd:Q174782 wd:Q54114 wd:Q1107656
-    wd:Q33506 wd:Q207694 wd:Q24354 wd:Q41253 wd:Q153562 wd:Q483110 wd:Q43501 wd:Q849706
+    wd:Q163687 wd:Q120560 wd:Q133747929 wd:Q108325 wd:Q1128397 wd:Q44613 wd:Q160742 wd:Q1864226
+    wd:Q5191724 wd:Q72926449 wd:Q797765
+    wd:Q82117 wd:Q39715 wd:Q483453
+    wd:Q22698 wd:Q46169 wd:Q35509 wd:Q1107656
+    wd:Q33506 wd:Q207694 wd:Q153562 wd:Q43501
     wd:Q194195
-    wd:Q860861 wd:Q851563 wd:Q6017969 wd:Q15135589 wd:Q39614 wd:Q3918
+    wd:Q860861 wd:Q5003624 wd:Q6017969 wd:Q15135589
 `;
 
 /** Normal-rank P31 values require `p:P31` / `ps:P31` instead of `wdt:P31`. */
@@ -29,14 +29,15 @@ export const SPARQL_INSTANCE_OF_CLAUSE = `
 
 /**
  * Non-POI `instance of` roots excluded from fast Explore search SPARQL.
- * Uses `wdt:P31/wdt:P279*` so cities, countries, languages, people, and events
- * are dropped without the expensive VALUES category join.
+ * Uses `wdt:P31/wdt:P279*` so cities, countries, languages, people, events,
+ * and transport infrastructure are dropped without the expensive VALUES category join.
  */
 export const SPARQL_EXCLUDED_INSTANCE_ROOTS = `
     wd:Q515 wd:Q5119 wd:Q1549593 wd:Q1637706 wd:Q1093829 wd:Q486972 wd:Q3957
     wd:Q532 wd:Q150241 wd:Q15284 wd:Q1048835 wd:Q6256 wd:Q3624078
     wd:Q347 wd:Q33742 wd:Q1288568 wd:Q17376908 wd:Q3331189
     wd:Q5 wd:Q43229 wd:Q1656682 wd:Q1190554 wd:Q198 wd:Q27020041
+    wd:Q928830 wd:Q55488 wd:Q55491 wd:Q953806 wd:Q1248784 wd:Q644371 wd:Q849706
 `;
 
 export const NEARBY_RADIUS_KM = 3;
@@ -598,6 +599,7 @@ export const fetchNearbyPlacesPaginated = async (
         country = "",
         countryCode = null,
         countryFlag = "📍",
+        radiusKm = NEARBY_RADIUS_KM,
     } = {},
     fetchImpl = fetch,
 ) => {
@@ -607,23 +609,15 @@ export const fetchNearbyPlacesPaginated = async (
         geo = reverse;
     }
 
-    const query = buildNearbyPlacesSparql(lat, lng, {
+    const { findNearbySightseeing } = await import("./sightseeing-query.mjs");
+    return findNearbySightseeing(lat, lng, {
+        radiusKm,
         limit,
         offset,
         orderBy: "distance",
-    });
-    const bindings = await runWikidataSparql(query, fetchImpl);
-    const places = mapBindingsToPlaces(bindings, {
-        lat,
-        lng,
         city: geo.city,
         country: geo.country,
         countryCode: geo.countryCode,
         countryFlag: geo.countryFlag,
     });
-
-    return {
-        places,
-        hasMore: bindings.length >= limit,
-    };
 };

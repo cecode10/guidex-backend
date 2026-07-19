@@ -9,25 +9,22 @@ import {
     fetchGoogleReverseGeocode,
     geoLocationPopularKeyFromCoords,
     geoMetadataFromGeocodeResult,
-    resolveExplorePopularPlaces,
 } from "../explore-popular-core.mjs";
-import { GEO_LOCATION_CACHE_SOURCE } from "../geo-location-utils.mjs";
+import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
+import { resolveExplorePopularPlacesFromDb } from "../sightseeing-query.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveNearMePopular";
 
 /**
- * Cloud Function: popular places around the user's coordinates.
- * Reads/writes `geo-location/{lat}_{lng}_r{radius}/popularAroundList/*`.
+ * Cloud Function: popular places around the user's coordinates (PostGIS).
  */
 export const resolveNearMePopular = onRequest(
-    {
-        cors: true,
-        region: "europe-west3",
+    sightseeingHttpsOptions({
         timeoutSeconds: 60,
         memory: "512MiB",
         secrets: [googleMapsApiKey],
-    },
+    }),
     async (req, res) => {
         const start = Date.now();
         try {
@@ -43,7 +40,6 @@ export const resolveNearMePopular = onRequest(
                 throw err;
             }
 
-            const forceRefresh = payload.forceRefresh === true;
             const language = geocodingLanguageFromAppLanguage(payload.language);
             const apiKey = googleMapsApiKey.value();
 
@@ -65,7 +61,7 @@ export const resolveNearMePopular = onRequest(
             const { label, city, countryCode, countryFlag, resolvedLat, resolvedLng } =
                 geoMetadataFromGeocodeResult(best, lat, lng);
 
-            const result = await resolveExplorePopularPlaces({
+            const result = await resolveExplorePopularPlacesFromDb({
                 functionName: FUNCTION_NAME,
                 key,
                 lat,
@@ -77,10 +73,6 @@ export const resolveNearMePopular = onRequest(
                 countryFlag,
                 resolvedLat,
                 resolvedLng,
-                forceRefresh,
-                language,
-                apiKey,
-                cacheSource: GEO_LOCATION_CACHE_SOURCE.USER,
             });
 
             const elapsed = Date.now() - start;
@@ -92,9 +84,6 @@ export const resolveNearMePopular = onRequest(
             const elapsed = Date.now() - start;
             const statusCode = explorePopularHttpStatus(error);
             console.error(`[${FUNCTION_NAME}] error after ${elapsed}ms:`, error?.message || error);
-            if (error?.extra) {
-                console.error(`[${FUNCTION_NAME}] sparql context: ${error.extra}`);
-            }
             return res
                 .status(statusCode)
                 .json({ error: statusCode === 401 ? "unauthorized" : error?.message || "failed" });

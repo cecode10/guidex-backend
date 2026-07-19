@@ -34,10 +34,15 @@
         "cleanup:bad-image-negatives": "node scripts/delete-bad-place-image-negatives.mjs --dry-run --clear-explore --credentials scripts/guidex-afc30-2758ce305a68.json",
         "cities:generate-list": "node scripts/generate-european-cities-list.mjs",
         "cities:seed-cache": "node scripts/seed-european-city-search-cache.mjs",
-        "cities:seed-cache:dry-run": "node scripts/seed-european-city-search-cache.mjs --dry-run --limit 5"
+        "cities:seed-cache:dry-run": "node scripts/seed-european-city-search-cache.mjs --dry-run --limit 5",
+        "sightseeing:migrate": "node -e \"import('fs').then(async fs=>{const{sightseeingQuery,closeSightseeingPool}=await import('./sightseeing-db.mjs');await sightseeingQuery(fs.readFileSync('db/001_sightseeing.sql','utf8'));await closeSightseeingPool();console.log('migrated');})\"",
+        "sightseeing:seed": "node scripts/seed-europe-sightseeing.mjs",
+        "sightseeing:seed:dry-run": "node scripts/seed-europe-sightseeing.mjs --dry-run --country=Andorra",
+        "deploy:sightseeing": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveNearbyPlaces"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@types/pg": "^8.20.0",
         "eslint": "^10.6.0",
         "firebase-tools": "^15.22.3",
         "globals": "^17.7.0",
@@ -47,6 +52,7 @@
         "firebase-admin": "^13.10.0",
         "firebase-functions": "^7.2.5",
         "openai": "^6.45.0",
+        "pg": "^8.22.0",
         "sharp": "^0.35.2"
     }
 }

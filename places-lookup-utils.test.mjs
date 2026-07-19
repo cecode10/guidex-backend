@@ -15,7 +15,7 @@ const categoryQids = () =>
     new Set([...SPARQL_POI_CATEGORIES.matchAll(/Q\d+/g)].map((match) => match[0]));
 
 describe("SPARQL POI category whitelist", () => {
-    it("includes key heritage and venue types", () => {
+    it("includes key heritage and sightseeing types", () => {
         const categories = categoryQids();
         expect(categories.has("Q570116")).toBe(true); // tourist attraction
         expect(categories.has("Q483453")).toBe(true); // fountain
@@ -27,15 +27,29 @@ describe("SPARQL POI category whitelist", () => {
         expect(categories.has("Q163687")).toBe(true); // basilica
         expect(categories.has("Q120560")).toBe(true); // minor basilica
         expect(categories.has("Q133747929")).toBe(true); // expiatory temple
+        expect(categories.has("Q1864226")).toBe(true); // campanile
+        expect(categories.has("Q5003624")).toBe(true); // memorial
         expect(categories.has("Q43501")).toBe(true); // zoo
-        expect(categories.has("Q41253")).toBe(true); // movie theater
-        expect(categories.has("Q483110")).toBe(true); // stadium
-        expect(categories.has("Q849706")).toBe(true); // airport terminal
         expect(categories.has("Q194195")).toBe(true); // amusement park
     });
 
-    it("drops known corrupted POC QIDs", () => {
+    it("excludes infrastructure, venues, and wrong QIDs", () => {
         const categories = categoryQids();
+        expect(categories.has("Q849706")).toBe(false); // airport terminal
+        expect(categories.has("Q54114")).toBe(false); // boulevard
+        expect(categories.has("Q41253")).toBe(false); // movie theater
+        expect(categories.has("Q3918")).toBe(false); // university
+        expect(categories.has("Q811979")).toBe(false); // architectural structure
+        expect(categories.has("Q174782")).toBe(false); // square
+        expect(categories.has("Q483110")).toBe(false); // stadium
+        expect(categories.has("Q39614")).toBe(false); // cemetery
+        expect(categories.has("Q24354")).toBe(false); // theatre building
+        expect(categories.has("Q12518")).toBe(false); // generic tower
+        expect(categories.has("Q12280")).toBe(false); // bridge
+        expect(categories.has("Q8502")).toBe(false); // mountain
+        expect(categories.has("Q358")).toBe(false); // heritage site (too broad)
+        expect(categories.has("Q3615570")).toBe(false); // Campanile snail genus
+        expect(categories.has("Q851563")).toBe(false); // Memorial NGO
         expect(categories.has("Q10502151")).toBe(false); // fungus
         expect(categories.has("Q10864048")).toBe(false); // admin division
         expect(categories.has("Q213422")).toBe(false); // Seneca
@@ -57,6 +71,9 @@ describe("global search popular SPARQL", () => {
         expect(query).toContain("LIMIT 40");
         expect(query).toContain("FILTER NOT EXISTS");
         expect(query).toContain("wdt:P31/wdt:P279* ?excluded");
+        expect(query).toContain("wd:Q928830"); // metro station
+        expect(query).toContain("wd:Q55488"); // railway station
+        expect(query).toContain("wd:Q849706"); // airport terminal
         expect(query).not.toContain("VALUES ?category");
         expect(query).not.toContain("p:P31");
         expect(query).not.toContain("?country wdt:P297");

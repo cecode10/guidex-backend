@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * LEGACY — Firestore geo-location city cache seeder.
+ *
+ * Explore/check-in nearby now read from the PostGIS `sightseeing` table
+ * (see `scripts/seed-europe-sightseeing.mjs`). Keep this script only for
+ * historical re-seeding of `geo-location/*` docs; do not use for new Explore work.
+ *
  * Pre-populates Firestore `geo-location/{lat}_{lng}_r10` cache entries for
  * European cities with 100k+ inhabitants (see scripts/data/european-cities-100k.json).
  *
