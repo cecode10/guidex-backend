@@ -30,11 +30,17 @@ caffeinate -dims -- node scripts/seed-europe-sightseeing.mjs \
 ## Firebase secrets / VPC
 
 ```bash
-firebase functions:secrets:set SIGHTSEEING_DATABASE_URL
-# Optional, private-IP Cloud SQL only:
-# export SIGHTSEEING_VPC_CONNECTOR=projects/PROJECT/locations/europe-west3/connectors/NAME
-firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveNearbyPlaces
-# or: npm run deploy:sightseeing
+# Connection string must use the Cloud SQL *private* IP (not the VPC connector range):
+# postgresql://postgres:PASSWORD@10.x.x.x:5432/sightseeing
+firebase functions:secrets:set SIGHTSEEING_DATABASE_URL --project guidex-afc30
+
+# VPC connector is configured via `.env.guidex-afc30` (SIGHTSEEING_VPC_CONNECTOR).
+# Shell `export` alone is ignored by `firebase deploy` — edit that file if the
+# connector name differs, then:
+npm run deploy:sightseeing
 ```
+
+After deploy, Cloud Run → function → Networking should show the connector
+(not `Network: None`).
 
 Radii stay **3 km** (near-me / check-in) and **10 km** (city search via geocode types).
