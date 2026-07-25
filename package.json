@@ -38,7 +38,8 @@
         "sightseeing:migrate": "node -e \"import('fs').then(async fs=>{const{sightseeingQuery,closeSightseeingPool}=await import('./sightseeing-db.mjs');await sightseeingQuery(fs.readFileSync('db/001_sightseeing.sql','utf8'));await closeSightseeingPool();console.log('migrated');})\"",
         "sightseeing:seed": "node scripts/seed-europe-sightseeing.mjs",
         "sightseeing:seed:dry-run": "node scripts/seed-europe-sightseeing.mjs --dry-run --country=Andorra",
-        "deploy:sightseeing": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveNearbyPlaces"
+        "deploy:sightseeing": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveNearbyPlaces,functions:ensureSightseeingByQid",
+        "deploy:ensureSightseeingByQid": "firebase deploy --only functions:ensureSightseeingByQid"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
