@@ -1,11 +1,4 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import {
-    bindingToSightseeingRow,
-    buildCountrySightseeingSparql,
-    COUNTRY_SIGHTSEEING_BOUNDS,
-    countrySightseeingBounds,
-    shouldForceTileSeed,
-} from "./scripts/seed-europe-sightseeing.mjs";
 import { mapSightseeingRowToPlace } from "./sightseeing-query.mjs";
 import {
     resetSightseeingPoolForTests,
@@ -64,90 +57,6 @@ describe("mapSightseeingRowToPlace", () => {
             { city: "FromGeocode" },
         );
         expect(place.city).toBe("FromGeocode");
-    });
-});
-
-describe("seed SPARQL helpers", () => {
-    it("builds a country-scoped quality SPARQL query", () => {
-        const sparql = buildCountrySightseeingSparql({
-            countryQid: "Q235",
-            minSitelinks: 1,
-            pageSize: 100,
-            offset: 0,
-        });
-        expect(sparql).toContain("wd:Q235");
-        expect(sparql).toContain("LIMIT 100");
-        expect(sparql).toContain("wikibase:sitelinks");
-    });
-
-    it("includes bbox filters when bounds are provided", () => {
-        const sparql = buildCountrySightseeingSparql({
-            countryQid: "Q159",
-            minSitelinks: 2,
-            pageSize: 50,
-            offset: 100,
-            bounds: { minLon: 20, maxLon: 60, minLat: 40, maxLat: 70 },
-        });
-        expect(sparql).toContain("geof:longitude(?location) >= 20");
-        expect(sparql).toContain("geof:longitude(?location) < 60");
-        expect(sparql).toContain("OFFSET 100");
-    });
-
-    it("supports an exclusive max sitelinks bound for range passes", () => {
-        const sparql = buildCountrySightseeingSparql({
-            countryQid: "Q142",
-            minSitelinks: 5,
-            maxSitelinks: 15,
-            pageSize: 500,
-            offset: 0,
-        });
-        expect(sparql).toContain("FILTER(?sitelinks >= 5 && ?sitelinks < 15)");
-    });
-
-    it("force-tiles France/Germany/Italy by default with tight bboxes", () => {
-        expect(shouldForceTileSeed({ name: "France", wikidataId: "Q142" })).toBe(true);
-        expect(shouldForceTileSeed({ name: "Malta", wikidataId: "Q233" })).toBe(false);
-        expect(shouldForceTileSeed({ name: "Malta", wikidataId: "Q233" }, true)).toBe(true);
-
-        const france = countrySightseeingBounds({ name: "France", wikidataId: "Q142" });
-        expect(france).toEqual(COUNTRY_SIGHTSEEING_BOUNDS.Q142);
-        expect(france.maxLon - france.minLon).toBeLessThan(20);
-    });
-
-    it("maps a Wikidata binding into a sightseeing row", () => {
-        const row = bindingToSightseeingRow({
-            item: { value: "http://www.wikidata.org/entity/Q243" },
-            itemLabel: { value: "Eiffel Tower" },
-            location: { value: "Point(2.2945 48.8584)" },
-            categoryLabel: { value: "tower" },
-            sitelinks: { value: "180" },
-            countryCode: { value: "FR" },
-            countryLabel: { value: "France" },
-            image: { value: "http://commons.example/eiffel.jpg" },
-        });
-        expect(row).toMatchObject({
-            wikidata_id: "Q243",
-            name: "Eiffel Tower",
-            country_code: "FR",
-            lat: 48.8584,
-            lng: 2.2945,
-            sitelinks: 180,
-        });
-        expect(row?.type).toBeTruthy();
-    });
-
-    it("drops bindings outside country bounds", () => {
-        const row = bindingToSightseeingRow(
-            {
-                item: { value: "http://www.wikidata.org/entity/Q1" },
-                itemLabel: { value: "Far East" },
-                location: { value: "Point(100 50)" },
-                categoryLabel: { value: "landmark" },
-                sitelinks: { value: "10" },
-            },
-            { maxLon: 60 },
-        );
-        expect(row).toBeNull();
     });
 });
 

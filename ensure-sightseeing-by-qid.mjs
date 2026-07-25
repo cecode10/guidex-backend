@@ -1,6 +1,6 @@
 /**
  * Hidden Explore admin path: ensure a single Wikidata QID exists in sightseeing.
- * Mirrors the seed-europe-sightseeing row shape + upsert SQL.
+ * Fetches a Wikidata entity and upserts it into the sightseeing table.
  */
 import {
     classifyPlaceTypeFromCategory,
@@ -12,8 +12,11 @@ import {
 } from "./places-lookup-utils.mjs";
 import { sightseeingQuery } from "./sightseeing-db.mjs";
 
-/** Capital Q + at least two digits; trailing junk is ignored. */
+/** Capital Q + at least two digits; trailing junk is ignored (Explore hidden path). */
 export const HIDDEN_QID_RE = /^Q(\d{2,})/;
+
+/** Strict Wikidata QID (admin / seed scripts). */
+export const WIKIDATA_QID_RE = /^Q(\d+)$/i;
 
 /**
  * @param {string} input
@@ -21,6 +24,19 @@ export const HIDDEN_QID_RE = /^Q(\d{2,})/;
  */
 export const parseHiddenQid = (input) => {
     const match = HIDDEN_QID_RE.exec(String(input ?? "").trim());
+    if (!match) return null;
+    return `Q${match[1]}`;
+};
+
+/**
+ * Normalize a Wikidata QID for admin scripts (`Q243`, `q243`, `wd:Q243`).
+ *
+ * @param {string} input
+ * @returns {string | null}
+ */
+export const parseWikidataQid = (input) => {
+    const trimmed = String(input ?? "").trim().replace(/^wd:/i, "");
+    const match = WIKIDATA_QID_RE.exec(trimmed);
     if (!match) return null;
     return `Q${match[1]}`;
 };
@@ -55,8 +71,6 @@ LIMIT 5
 };
 
 /**
- * Same row mapping as seed-europe-sightseeing `bindingToSightseeingRow` (no bbox filter).
- *
  * @param {Record<string, unknown>} binding
  * @returns {Record<string, unknown> | null}
  */
@@ -108,8 +122,6 @@ export const sightseeingExistsByQid = async (qid) => {
 };
 
 /**
- * Upsert matching seed-europe-sightseeing `upsertSightseeingRows`.
- *
  * @param {Record<string, unknown>} row
  * @returns {Promise<void>}
  */
@@ -180,14 +192,29 @@ export const fetchSightseeingRowFromWikidata = async (qid, fetchImpl = fetch) =>
 
 /**
  * @param {string} rawInput
- * @param {{ fetchImpl?: typeof fetch }} [options]
- * @returns {Promise<{ status: "exists" | "added", wikidataId: string, name?: string }>}
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   dryRun?: boolean,
+ *   hiddenOnly?: boolean,
+ * }} [options] `hiddenOnly` (default true) requires Explore pattern Q + ≥2 digits.
+ * @returns {Promise<{
+ *   status: "exists" | "added" | "would_add",
+ *   wikidataId: string,
+ *   name?: string,
+ * }>}
  */
-export const ensureSightseeingByQid = async (rawInput, { fetchImpl = fetch } = {}) => {
-    const wikidataId = parseHiddenQid(rawInput);
+export const ensureSightseeingByQid = async (
+    rawInput,
+    { fetchImpl = fetch, dryRun = false, hiddenOnly = true } = {},
+) => {
+    const wikidataId = hiddenOnly
+        ? parseHiddenQid(rawInput)
+        : parseWikidataQid(rawInput) ?? parseHiddenQid(rawInput);
     if (!wikidataId) {
         const err = new Error(
-            'wikidataId must start with capital "Q" followed by at least 2 digits',
+            hiddenOnly
+                ? 'wikidataId must start with capital "Q" followed by at least 2 digits'
+                : "wikidataId must be a Wikidata QID (e.g. Q243)",
         );
         err.statusCode = 400;
         throw err;
@@ -198,6 +225,13 @@ export const ensureSightseeingByQid = async (rawInput, { fetchImpl = fetch } = {
     }
 
     const row = await fetchSightseeingRowFromWikidata(wikidataId, fetchImpl);
+    if (dryRun) {
+        return {
+            status: "would_add",
+            wikidataId,
+            name: String(row.name ?? ""),
+        };
+    }
     await upsertSightseeingRow(row);
     return {
         status: "added",

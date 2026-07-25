@@ -10,21 +10,19 @@ Apply once per database:
 ```bash
 export DATABASE_URL=postgresql://USER:PASS@HOST:5432/sightseeing
 psql "$DATABASE_URL" -f db/001_sightseeing.sql
-# or: npm run sightseeing:migrate
+# or: npm run script:sightseeing:migrate
 ```
 
-## Seed from Wikidata
+## Seed specific QIDs (admin)
+
+Calls the deployed `ensureSightseeingByQid` Cloud Function (no local DB access needed):
 
 ```bash
-export DATABASE_URL=postgresql://USER:PASS@HOST:5432/sightseeing
-npm run sightseeing:seed:dry-run
-npm run sightseeing:seed -- --country=Malta
-npm run sightseeing:seed
-
-# Heavy countries (FR/DE/IT/AT/RU) auto-start on tight bbox tiles.
-# Example France retry (lighter first pass):
-caffeinate -dims -- node scripts/seed-europe-sightseeing.mjs \
-  --country=France --min-sitelinks=15 --page-size=500 --delay-ms=2500
+# credentials: scripts/guidex-afc30-*.json
+# API key + BACKEND_URL: auto-read from mobile-app/.env
+npm run script:sightseeing:seed-qids:dry-run -- --file scripts/qids.txt
+npm run script:sightseeing:seed-qids -- --file scripts/qids.txt
+npm run script:sightseeing:seed-qids -- --qid Q243 --qid Q1054070
 ```
 
 ## Firebase secrets / VPC
@@ -37,7 +35,7 @@ firebase functions:secrets:set SIGHTSEEING_DATABASE_URL --project guidex-afc30
 # VPC connector is configured via `.env.guidex-afc30` (SIGHTSEEING_VPC_CONNECTOR).
 # Shell `export` alone is ignored by `firebase deploy` — edit that file if the
 # connector name differs, then:
-npm run deploy:sightseeing
+npm run deploy:batch:sightseeing
 ```
 
 After deploy, Cloud Run → function → Networking should show the connector

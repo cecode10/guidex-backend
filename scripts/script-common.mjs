@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    statSync,
+    writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cert } from "firebase-admin/app";
@@ -38,6 +45,119 @@ export function resolveExistingPath(rawPath) {
 }
 
 /**
+ * Parse a simple KEY=VALUE .env file (supports optional quotes).
+ * @param {string} filePath
+ * @returns {Record<string, string>}
+ */
+export function parseEnvFile(filePath) {
+    if (!existsSync(filePath)) return {};
+    /** @type {Record<string, string>} */
+    const out = {};
+    for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eq = trimmed.indexOf("=");
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let value = trimmed.slice(eq + 1).trim();
+        if (
+            (value.startsWith("'") && value.endsWith("'")) ||
+            (value.startsWith('"') && value.endsWith('"'))
+        ) {
+            value = value.slice(1, -1);
+        }
+        out[key] = value;
+    }
+    return out;
+}
+
+/**
+ * Load `mobile-app/.env` when present (repo layout: backend/../mobile-app/.env).
+ * @returns {Record<string, string>}
+ */
+export function loadMobileAppEnv() {
+    const candidates = [
+        join(__dirname, "..", "..", "mobile-app", ".env"),
+        join(process.cwd(), "..", "mobile-app", ".env"),
+        join(process.cwd(), "mobile-app", ".env"),
+    ];
+    for (const candidate of candidates) {
+        if (existsSync(candidate)) return parseEnvFile(candidate);
+    }
+    return {};
+}
+
+/**
+ * Firebase Web/Android API key for Identity Toolkit custom-token exchange.
+ * Order: explicit → FIREBASE_API_KEY* env → mobile-app/.env
+ *
+ * @param {string} [explicit]
+ * @returns {string}
+ */
+export function resolveFirebaseApiKey(explicit = "") {
+    const fromExplicit = String(explicit ?? "").trim();
+    if (fromExplicit) return fromExplicit;
+
+    for (const key of [
+        "FIREBASE_API_KEY",
+        "FIREBASE_API_KEY_ANDROID",
+        "FIREBASE_API_KEY_IOS",
+    ]) {
+        const value = String(process.env[key] ?? "").trim();
+        if (value) return value;
+    }
+
+    const mobileEnv = loadMobileAppEnv();
+    for (const key of [
+        "FIREBASE_API_KEY",
+        "FIREBASE_API_KEY_ANDROID",
+        "FIREBASE_API_KEY_IOS",
+    ]) {
+        const value = String(mobileEnv[key] ?? "").trim();
+        if (value) return value;
+    }
+    return "";
+}
+
+/**
+ * Cloud Functions base URL. Order: explicit → BACKEND_URL env → mobile-app/.env
+ *
+ * @param {string} [explicit]
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function resolveBackendUrl(explicit = "", fallback = "") {
+    const fromExplicit = String(explicit ?? "").trim();
+    if (fromExplicit) return fromExplicit;
+    const fromEnv = String(process.env.BACKEND_URL ?? "").trim();
+    if (fromEnv) return fromEnv;
+    const fromMobile = String(loadMobileAppEnv().BACKEND_URL ?? "").trim();
+    if (fromMobile) return fromMobile;
+    return String(fallback ?? "").trim();
+}
+
+/**
+ * Newest `scripts/guidex-afc30-*.json`, or null if none.
+ * @returns {string | null}
+ */
+export function findAutoCredentialsPath() {
+    /** @type {Array<{ path: string, mtimeMs: number }>} */
+    const matches = [];
+    for (const name of readdirSync(__dirname)) {
+        if (!/^guidex-afc30-.*\.json$/i.test(name)) continue;
+        const path = join(__dirname, name);
+        try {
+            matches.push({ path, mtimeMs: statSync(path).mtimeMs });
+        } catch {
+            // ignore unreadable entries
+        }
+    }
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return matches[0].path;
+}
+
+/**
  * @param {string} explicitPath
  * @param {string} scriptLabel
  * @returns {string}
@@ -45,6 +165,9 @@ export function resolveExistingPath(rawPath) {
 export function resolveCredentialsPath(explicitPath, scriptLabel = "script") {
     const fromFlag = resolveExistingPath(explicitPath);
     if (fromFlag) return fromFlag;
+
+    const auto = findAutoCredentialsPath();
+    if (auto) return auto;
 
     const fromEnv = resolveExistingPath(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "");
     if (fromEnv) return fromEnv;
@@ -56,24 +179,14 @@ export function resolveCredentialsPath(explicitPath, scriptLabel = "script") {
         if (existsSync(inScripts)) return inScripts;
     }
 
-    const defaults = readdirSync(__dirname)
-        .filter((name) => /^guidex-afc30-.*\.json$/i.test(name))
-        .sort();
-    if (defaults.length === 1) {
-        return join(__dirname, defaults[0]);
-    }
-
     console.error(`
 Could not find Firebase service account credentials for ${scriptLabel}.
 
-Run from backend/ and pass the JSON in scripts/:
+Place a service account JSON in scripts/ matching:
 
-  cd backend
-  node scripts/${scriptLabel}.mjs --credentials scripts/guidex-afc30-2758ce305a68.json
+  scripts/guidex-afc30-*.json
 
-Or set:
-
-  export GOOGLE_APPLICATION_CREDENTIALS="$PWD/scripts/guidex-afc30-2758ce305a68.json"
+Or pass --credentials PATH / set GOOGLE_APPLICATION_CREDENTIALS.
 `);
     process.exit(1);
 }

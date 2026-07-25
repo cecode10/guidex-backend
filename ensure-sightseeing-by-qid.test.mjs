@@ -3,6 +3,7 @@ import {
     bindingToSightseeingRowForQid,
     buildSightseeingByQidSparql,
     parseHiddenQid,
+    parseWikidataQid,
 } from "./ensure-sightseeing-by-qid.mjs";
 
 describe("parseHiddenQid", () => {
@@ -22,6 +23,19 @@ describe("parseHiddenQid", () => {
         expect(parseHiddenQid("Q1")).toBeNull();
         expect(parseHiddenQid("Eiffel")).toBeNull();
         expect(parseHiddenQid("")).toBeNull();
+    });
+});
+
+describe("parseWikidataQid", () => {
+    it("accepts any Q + digits and normalizes case / wd: prefix", () => {
+        expect(parseWikidataQid("Q1")).toBe("Q1");
+        expect(parseWikidataQid("q243")).toBe("Q243");
+        expect(parseWikidataQid("wd:Q243")).toBe("Q243");
+    });
+
+    it("rejects junk", () => {
+        expect(parseWikidataQid("Q243 trailing")).toBeNull();
+        expect(parseWikidataQid("Eiffel")).toBeNull();
     });
 });
 
@@ -138,5 +152,49 @@ describe("ensureSightseeingByQid", () => {
         expect(queryMock).toHaveBeenCalledTimes(2);
         expect(String(queryMock.mock.calls[1][0])).toContain("INSERT INTO sightseeing");
         expect(queryMock.mock.calls[1][1][0]).toBe("Q243");
+    });
+
+    it("supports dry-run without writing", async () => {
+        const queryMock = vi.fn().mockResolvedValue({ rows: [] });
+        vi.resetModules();
+        vi.doMock("./sightseeing-db.mjs", () => ({
+            sightseeingQuery: queryMock,
+            getSightseeingPool: vi.fn(),
+            closeSightseeingPool: vi.fn(),
+            resolveSightseeingDatabaseUrl: vi.fn(),
+            resetSightseeingPoolForTests: vi.fn(),
+        }));
+
+        const fetchImpl = vi.fn(async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                results: {
+                    bindings: [
+                        {
+                            item: { value: "http://www.wikidata.org/entity/Q243" },
+                            itemLabel: { value: "Eiffel Tower" },
+                            location: { value: "Point(2.2945 48.8584)" },
+                            categoryLabel: { value: "tower" },
+                            sitelinks: { value: "180" },
+                            countryLabel: { value: "France" },
+                            countryCode: { value: "fr" },
+                        },
+                    ],
+                },
+            }),
+        }));
+
+        const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
+        const result = await ensureSightseeingByQid("Q243", {
+            fetchImpl,
+            dryRun: true,
+        });
+        expect(result).toEqual({
+            status: "would_add",
+            wikidataId: "Q243",
+            name: "Eiffel Tower",
+        });
+        expect(queryMock).toHaveBeenCalledTimes(1);
     });
 });

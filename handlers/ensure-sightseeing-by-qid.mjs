@@ -21,11 +21,17 @@ export const ensureSightseeingByQidFn = onRequest(
             const payload = req.body || {};
             validateMandatoryFields(payload, ["wikidataId"]);
 
-            const result = await ensureSightseeingByQid(String(payload.wikidataId));
+            const dryRun = Boolean(payload.dryRun);
+            // Admin/API path accepts any Wikidata QID (not only Explore's Q+≥2 digits).
+            const result = await ensureSightseeingByQid(String(payload.wikidataId), {
+                dryRun,
+                hiddenOnly: false,
+            });
             const elapsed = Date.now() - start;
             console.log(
                 `[${FUNCTION_NAME}] ${result.status} ${result.wikidataId}` +
                     (result.name ? ` name="${result.name}"` : "") +
+                    (dryRun ? " dryRun" : "") +
                     ` in ${elapsed}ms`,
             );
             return res.status(200).json(result);

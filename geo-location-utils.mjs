@@ -10,7 +10,7 @@ export const MAX_NEARBY_RESULTS = 30;
 
 /** How a geo-location parent doc was first populated. */
 export const GEO_LOCATION_CACHE_SOURCE = {
-    /** Pre-populated by `seed-european-city-search-cache.mjs`. */
+    /** Pre-populated by a historical batch seed (legacy cache docs). */
     BATCH_SEED: "batch_seed",
     /** Created on cache miss via Cloud Functions (user Explore search / near-me). */
     USER: "user",
