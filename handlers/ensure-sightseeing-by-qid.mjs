@@ -22,7 +22,7 @@ export const ensureSightseeingByQidFn = onRequest(
             validateMandatoryFields(payload, ["wikidataId"]);
 
             const dryRun = Boolean(payload.dryRun);
-            // Admin/API path accepts any Wikidata QID (not only Explore's Q+≥2 digits).
+            // Admin/API path accepts any Wikidata QID (not only Explore's Q/q+≥2 digits).
             const result = await ensureSightseeingByQid(String(payload.wikidataId), {
                 dryRun,
                 hiddenOnly: false,

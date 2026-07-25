@@ -12,8 +12,8 @@ import {
 } from "./places-lookup-utils.mjs";
 import { sightseeingQuery } from "./sightseeing-db.mjs";
 
-/** Capital Q + at least two digits; trailing junk is ignored (Explore hidden path). */
-export const HIDDEN_QID_RE = /^Q(\d{2,})/;
+/** Upper/lowercase q + at least two digits; trailing junk is ignored (Explore hidden path). */
+export const HIDDEN_QID_RE = /^[Qq](\d{2,})/;
 
 /** Strict Wikidata QID (admin / seed scripts). */
 export const WIKIDATA_QID_RE = /^Q(\d+)$/i;
@@ -196,7 +196,7 @@ export const fetchSightseeingRowFromWikidata = async (qid, fetchImpl = fetch) =>
  *   fetchImpl?: typeof fetch,
  *   dryRun?: boolean,
  *   hiddenOnly?: boolean,
- * }} [options] `hiddenOnly` (default true) requires Explore pattern Q + ≥2 digits.
+ * }} [options] `hiddenOnly` (default true) requires Explore pattern Q/q + ≥2 digits.
  * @returns {Promise<{
  *   status: "exists" | "added" | "would_add",
  *   wikidataId: string,
@@ -213,7 +213,7 @@ export const ensureSightseeingByQid = async (
     if (!wikidataId) {
         const err = new Error(
             hiddenOnly
-                ? 'wikidataId must start with capital "Q" followed by at least 2 digits'
+                ? 'wikidataId must start with "Q" or "q" followed by at least 2 digits'
                 : "wikidataId must be a Wikidata QID (e.g. Q243)",
         );
         err.statusCode = 400;

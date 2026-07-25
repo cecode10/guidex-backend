@@ -7,19 +7,19 @@ import {
 } from "./ensure-sightseeing-by-qid.mjs";
 
 describe("parseHiddenQid", () => {
-    it("accepts capital Q followed by at least two digits", () => {
-        expect(parseHiddenQid("Q12")).toBe("Q12");
+    it("accepts upper or lowercase q followed by at least two digits", () => {
+        expect(parseHiddenQid("q12")).toBe("Q12");
         expect(parseHiddenQid("Q243")).toBe("Q243");
-        expect(parseHiddenQid("  Q123456  ")).toBe("Q123456");
+        expect(parseHiddenQid("  q123456  ")).toBe("Q123456");
     });
 
     it("ignores trailing junk after the QID digits", () => {
         expect(parseHiddenQid("Q123456 already there")).toBe("Q123456");
-        expect(parseHiddenQid("Q99abc")).toBe("Q99");
+        expect(parseHiddenQid("q99abc")).toBe("Q99");
     });
 
-    it("rejects lowercase q, single digit, or non-Q prefixes", () => {
-        expect(parseHiddenQid("q243")).toBeNull();
+    it("rejects single digit or non-q prefixes", () => {
+        expect(parseHiddenQid("q1")).toBeNull();
         expect(parseHiddenQid("Q1")).toBeNull();
         expect(parseHiddenQid("Eiffel")).toBeNull();
         expect(parseHiddenQid("")).toBeNull();
@@ -103,7 +103,7 @@ describe("ensureSightseeingByQid", () => {
         }));
 
         const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
-        const result = await ensureSightseeingByQid("Q243 trailing");
+        const result = await ensureSightseeingByQid("q243 trailing");
         expect(result).toEqual({ status: "exists", wikidataId: "Q243" });
         expect(queryMock).toHaveBeenCalledTimes(1);
     });
@@ -143,7 +143,7 @@ describe("ensureSightseeingByQid", () => {
         }));
 
         const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
-        const result = await ensureSightseeingByQid("Q243", { fetchImpl });
+        const result = await ensureSightseeingByQid("q243", { fetchImpl });
         expect(result).toEqual({
             status: "added",
             wikidataId: "Q243",
@@ -186,7 +186,7 @@ describe("ensureSightseeingByQid", () => {
         }));
 
         const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
-        const result = await ensureSightseeingByQid("Q243", {
+        const result = await ensureSightseeingByQid("q243", {
             fetchImpl,
             dryRun: true,
         });
