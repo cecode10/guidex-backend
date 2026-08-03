@@ -105,6 +105,32 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     }
 }
 
+/** Non-streaming completion without tools — for grounded JSON tasks. */
+export const answerToPromptPlain = async (systemPrompt, userPrompt) => {
+    if (!systemPrompt?.trim()) {
+        throw new Error("system prompt is required");
+    }
+    if (!userPrompt?.trim()) {
+        throw new Error("user prompt is required");
+    }
+    console.log("systemPrompt = " + systemPrompt);
+    console.log("userPrompt = " + userPrompt);
+    console.log("using model (plain) = " + model4o);
+    try {
+        const start = Date.now();
+        const response = await getClient().responses.create({
+            model: model4o,
+            instructions: systemPrompt,
+            input: userPrompt,
+        });
+        const elapsed = Date.now() - start;
+        console.log(`[answerToPromptPlain] OpenAI API responded in ${elapsed}ms`);
+        return response.output_text;
+    } catch (error) {
+        throw normalizeOpenAiError(error);
+    }
+};
+
 export const answerToPromptStreaming = async function* (systemPrompt, userPrompt) {
     if (!systemPrompt?.trim()) {
         throw new Error("system prompt is required");

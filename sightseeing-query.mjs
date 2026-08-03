@@ -37,9 +37,15 @@ export const mapSightseeingRowToPlace = (row, context = {}) => {
     const contextCountry =
         context.country != null ? String(context.country).trim() : "";
 
+    const categoryLabel =
+        row.category_label != null && String(row.category_label).trim()
+            ? String(row.category_label).trim()
+            : null;
+
     return {
         name: String(row.name ?? ""),
         type: String(row.type ?? "Point of Interest"),
+        categoryLabel,
         distance: distanceMeters,
         city: contextCity || rowCity || "Nearby",
         country: contextCountry || rowCountry,
