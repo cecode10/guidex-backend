@@ -45,8 +45,8 @@ import { getAuth } from "firebase-admin/auth";
 import {
     ensureSightseeingByQid,
     parseWikidataQid,
-} from "../ensure-sightseeing-by-qid.mjs";
-import { closeSightseeingPool } from "../sightseeing-db.mjs";
+} from "../services/ensure-sightseeing-by-qid.mjs";
+import { closeSightseeingPool } from "../services/sightseeing-db.mjs";
 import {
     loadCredential,
     resolveBackendUrl,

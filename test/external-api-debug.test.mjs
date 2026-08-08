@@ -4,7 +4,7 @@ import {
     mediaWikiApiParamsFromUrl,
     sparqlQueryFromUrl,
     wikipediaRestPathFromUrl,
-} from "./external-api-debug.mjs";
+} from "../utils/external-api-debug.mjs";
 
 describe("external-api-debug query formatting", () => {
     it("extracts SPARQL from wikidata query URLs", () => {

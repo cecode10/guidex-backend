@@ -1,7 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { deleteFirebaseUser } from "../google-service.mjs";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
+import { deleteFirebaseUser } from "../services/google-service.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
 
 const FUNCTION_NAME = "deleteAccount";
 

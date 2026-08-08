@@ -4,7 +4,7 @@ import {
     buildSightseeingByQidSparql,
     parseHiddenQid,
     parseWikidataQid,
-} from "./ensure-sightseeing-by-qid.mjs";
+} from "../services/ensure-sightseeing-by-qid.mjs";
 
 describe("parseHiddenQid", () => {
     it("accepts upper or lowercase q followed by at least two digits", () => {
@@ -86,7 +86,7 @@ describe("bindingToSightseeingRowForQid", () => {
 
 describe("ensureSightseeingByQid", () => {
     afterEach(() => {
-        vi.doUnmock("./sightseeing-db.mjs");
+        vi.doUnmock("../services/sightseeing-db.mjs");
         vi.resetModules();
         vi.restoreAllMocks();
     });
@@ -94,7 +94,7 @@ describe("ensureSightseeingByQid", () => {
     it("returns exists when the QID is already in the DB", async () => {
         const queryMock = vi.fn().mockResolvedValue({ rows: [{ "?column?": 1 }] });
         vi.resetModules();
-        vi.doMock("./sightseeing-db.mjs", () => ({
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
             sightseeingQuery: queryMock,
             getSightseeingPool: vi.fn(),
             closeSightseeingPool: vi.fn(),
@@ -102,7 +102,7 @@ describe("ensureSightseeingByQid", () => {
             resetSightseeingPoolForTests: vi.fn(),
         }));
 
-        const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
+        const { ensureSightseeingByQid } = await import("../services/ensure-sightseeing-by-qid.mjs");
         const result = await ensureSightseeingByQid("q243 trailing");
         expect(result).toEqual({ status: "exists", wikidataId: "Q243" });
         expect(queryMock).toHaveBeenCalledTimes(1);
@@ -114,7 +114,7 @@ describe("ensureSightseeingByQid", () => {
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [] });
         vi.resetModules();
-        vi.doMock("./sightseeing-db.mjs", () => ({
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
             sightseeingQuery: queryMock,
             getSightseeingPool: vi.fn(),
             closeSightseeingPool: vi.fn(),
@@ -142,7 +142,7 @@ describe("ensureSightseeingByQid", () => {
             }),
         }));
 
-        const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
+        const { ensureSightseeingByQid } = await import("../services/ensure-sightseeing-by-qid.mjs");
         const result = await ensureSightseeingByQid("q243", { fetchImpl });
         expect(result).toEqual({
             status: "added",
@@ -157,7 +157,7 @@ describe("ensureSightseeingByQid", () => {
     it("supports dry-run without writing", async () => {
         const queryMock = vi.fn().mockResolvedValue({ rows: [] });
         vi.resetModules();
-        vi.doMock("./sightseeing-db.mjs", () => ({
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
             sightseeingQuery: queryMock,
             getSightseeingPool: vi.fn(),
             closeSightseeingPool: vi.fn(),
@@ -185,7 +185,7 @@ describe("ensureSightseeingByQid", () => {
             }),
         }));
 
-        const { ensureSightseeingByQid } = await import("./ensure-sightseeing-by-qid.mjs");
+        const { ensureSightseeingByQid } = await import("../services/ensure-sightseeing-by-qid.mjs");
         const result = await ensureSightseeingByQid("q243", {
             fetchImpl,
             dryRun: true,

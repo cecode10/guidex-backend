@@ -9,7 +9,7 @@ import {
     runWikidataSparql,
     wikidataIdFromItemUri,
     WIKIDATA_SPARQL_SEARCH_TIMEOUT_MS,
-} from "./places-lookup-utils.mjs";
+} from "../utils/places-lookup-utils.mjs";
 import { sightseeingQuery } from "./sightseeing-db.mjs";
 
 /** Upper/lowercase q + at least two digits; trailing junk is ignored (Explore hidden path). */

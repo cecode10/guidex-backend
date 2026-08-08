@@ -5,7 +5,7 @@ import {
     geoLocationCacheSourceForWrite,
     GEO_LOCATION_CACHE_SOURCE,
     isValidGeoLocationCacheSource,
-} from "./geo-location-utils.mjs";
+} from "../utils/geo-location-utils.mjs";
 
 describe("geo-location cache keys", () => {
     it("keeps coordinate keys at three decimal places", () => {

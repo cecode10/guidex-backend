@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { popularSearchRadiusKmFromGeocodeTypes } from "./geocode-anchor-utils.mjs";
+import { popularSearchRadiusKmFromGeocodeTypes } from "../utils/geocode-anchor-utils.mjs";
 
 describe("popular search radius policy", () => {
     it("uses 10 km for locality-type geocode results", () => {

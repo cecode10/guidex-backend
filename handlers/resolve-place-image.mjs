@@ -3,17 +3,17 @@ import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
 import {
     patchPopularPlaceImage,
     resolveWikidataIdsForTitles,
-} from "../geo-location-utils.mjs";
+} from "../utils/geo-location-utils.mjs";
 import {
     logExternalApiRequestUrl,
     logExternalApiResponseUrl,
     logExternalApiCacheHit,
-} from "../external-api-debug.mjs";
+} from "../utils/external-api-debug.mjs";
 
 const FUNCTION_NAME = "resolvePlaceImage";
 const COLLECTION = "place-images";

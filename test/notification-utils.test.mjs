@@ -11,7 +11,7 @@ import {
     matchesBinaryPolicy,
     matchesThreeWayPolicy,
     tokenDocumentId,
-} from "./notification-utils.mjs";
+} from "../utils/notification-utils.mjs";
 
 describe("notification-utils", () => {
     it("extractNotificationSetting prefers nested settings", () => {

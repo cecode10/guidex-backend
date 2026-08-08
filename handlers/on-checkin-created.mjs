@@ -9,7 +9,7 @@ import {
     followerIdsOf,
     matchesBinaryPolicy,
     sendPushToUser,
-} from "../notification-utils.mjs";
+} from "../utils/notification-utils.mjs";
 
 /**
  * Notifies followers when a user publishes a new check-in.

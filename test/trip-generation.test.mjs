@@ -10,7 +10,7 @@ import {
     placeMatchesTripType,
     routeLengthMeters,
     tripSearchRadiusKm,
-} from "./trip-generation.mjs";
+} from "../services/trip-generation.mjs";
 
 describe("normalizeTripTypes", () => {
     it("keeps only allowed unique types", () => {

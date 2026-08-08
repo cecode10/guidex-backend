@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     explorePopularHttpStatus,
     forwardGeocodeHasLocalityMetadata,
-} from "./explore-popular-core.mjs";
-import { WikidataSparqlTransientError } from "./places-lookup-utils.mjs";
+} from "../services/explore-popular-core.mjs";
+import { WikidataSparqlTransientError } from "../utils/places-lookup-utils.mjs";
 
 describe("forwardGeocodeHasLocalityMetadata", () => {
     it("returns true when forward geocode has city and country", () => {

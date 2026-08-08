@@ -1,17 +1,17 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { geocodingLanguageFromAppLanguage } from "../geocode-anchor-utils.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { geocodingLanguageFromAppLanguage } from "../utils/geocode-anchor-utils.mjs";
 import {
     NEARBY_RADIUS_KM,
     explorePopularHttpStatus,
     fetchGoogleReverseGeocode,
     geoLocationPopularKeyFromCoords,
     geoMetadataFromGeocodeResult,
-} from "../explore-popular-core.mjs";
-import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
-import { resolveExplorePopularPlacesFromDb } from "../sightseeing-query.mjs";
+} from "../services/explore-popular-core.mjs";
+import { sightseeingHttpsOptions } from "../utils/sightseeing-function-options.mjs";
+import { resolveExplorePopularPlacesFromDb } from "../services/sightseeing-query.mjs";
 
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const FUNCTION_NAME = "resolveNearMePopular";

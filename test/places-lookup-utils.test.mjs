@@ -8,8 +8,8 @@ import {
     isWikidataSparqlAbortError,
     runWikidataSparql,
     sparqlTimeoutMsForRadius,
-} from "./places-lookup-utils.mjs";
-import { buildNearbyPopularPlacesSparql, buildGlobalSearchPopularPlacesSparql } from "./wikidata-nearby-utils.mjs";
+} from "../utils/places-lookup-utils.mjs";
+import { buildNearbyPopularPlacesSparql, buildGlobalSearchPopularPlacesSparql } from "../utils/wikidata-nearby-utils.mjs";
 
 const categoryQids = () =>
     new Set([...SPARQL_POI_CATEGORIES.matchAll(/Q\d+/g)].map((match) => match[0]));

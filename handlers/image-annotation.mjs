@@ -1,9 +1,9 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { answerToPromptStreaming } from "../open-ai-service.mjs";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { getSystemPrompt } from "../system-prompt.mjs";
+import { answerToPromptStreaming } from "../services/open-ai-service.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { getSystemPrompt } from "../prompts/system-prompt.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 

@@ -9,7 +9,7 @@ import {
     matchesThreeWayPolicy,
     sendPushToUser,
     userFollows,
-} from "../notification-utils.mjs";
+} from "../utils/notification-utils.mjs";
 
 /**
  * Notifies a check-in author when someone likes their check-in.

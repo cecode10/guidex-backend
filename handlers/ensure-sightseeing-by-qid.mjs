@@ -1,8 +1,8 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { ensureSightseeingByQid } from "../ensure-sightseeing-by-qid.mjs";
-import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { ensureSightseeingByQid } from "../services/ensure-sightseeing-by-qid.mjs";
+import { sightseeingHttpsOptions } from "../utils/sightseeing-function-options.mjs";
 
 const FUNCTION_NAME = "ensureSightseeingByQid";
 

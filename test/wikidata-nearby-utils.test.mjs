@@ -8,7 +8,7 @@ import {
     normalizeSparqlProfile,
     resolveSparqlFetchOptions,
     sparqlProfileMatchesCache,
-} from "./wikidata-nearby-utils.mjs";
+} from "../utils/wikidata-nearby-utils.mjs";
 
 describe("sparql profile helpers", () => {
     it("validates known profiles", () => {

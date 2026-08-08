@@ -8,12 +8,8 @@ const getClient = () => {
     return openai;
 };
 
-const model4o = "gpt-4o-mini";
-const model41 = "gpt-4.1-mini";
+const model = "gpt-5.6-luna";
 const model40tts = "gpt-4o-mini-tts";
-const model5nano = "gpt-5-nano";
-const model5mini = "gpt-5-mini";
-const model54mini = "gpt-5.4-mini";
 
 const normalizeOpenAiError = (error) => {
     if (!error || typeof error !== "object") {
@@ -40,11 +36,10 @@ export const analyzeImage = async (image, prompt) => {
         throw new Error("prompt is required");
     }
 
-    const model = model41;
     console.log("finalPrompt = " + finalPrompt);
     console.log("using model = " + model);
     const payload = {
-        model: model,
+        model,
         input: [
             {
                 role: "user",
@@ -75,7 +70,7 @@ export const analyzeImage = async (image, prompt) => {
 }
 
 const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => ({
-    model: model4o,
+    model,
     instructions: systemPrompt,
     input: userPrompt,
     tools: [{ type: "web_search" }],
@@ -91,7 +86,7 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
     }
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model = " + model4o);
+    console.log("using model = " + model);
     try {
         const start = Date.now();
         const response = await getClient().responses.create(
@@ -115,11 +110,11 @@ export const answerToPromptPlain = async (systemPrompt, userPrompt) => {
     }
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model (plain) = " + model4o);
+    console.log("using model (plain) = " + model);
     try {
         const start = Date.now();
         const response = await getClient().responses.create({
-            model: model4o,
+            model,
             instructions: systemPrompt,
             input: userPrompt,
         });
@@ -140,7 +135,7 @@ export const answerToPromptStreaming = async function* (systemPrompt, userPrompt
     }
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model (streaming) = " + model4o);
+    console.log("using model (streaming) = " + model);
     try {
         const start = Date.now();
         const stream = await getClient().responses.create(
@@ -159,16 +154,16 @@ export const answerToPromptStreaming = async function* (systemPrompt, userPrompt
 };
 
 export const textToSpeech = async (inputText, options = {}) => {
-    const model = options.model || model40tts;
+    const ttsModel = options.model || model40tts;
     const voice = options.voice || "alloy";
     const format = options.format || "mp3";
 
-    console.log("using model = " + model + ", voice = " + voice + ", format = " + format);
+    console.log("using model = " + ttsModel + ", voice = " + voice + ", format = " + format);
 
     try {
         const t0 = Date.now();
         const response = await getClient().audio.speech.create({
-            model,
+            model: ttsModel,
             voice,
             input: inputText,
             format,

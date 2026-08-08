@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { answerToPromptPlain } from "../open-ai-service.mjs";
-import { reverseGeocodeNominatim } from "../places-lookup-utils.mjs";
-import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
-import { findNearbySightseeing } from "../sightseeing-query.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { answerToPromptPlain } from "../services/open-ai-service.mjs";
+import { reverseGeocodeNominatim } from "../utils/places-lookup-utils.mjs";
+import { sightseeingHttpsOptions } from "../utils/sightseeing-function-options.mjs";
+import { findNearbySightseeing } from "../services/sightseeing-query.mjs";
 import {
     buildTripPrompts,
     groundTripStops,
@@ -15,8 +15,8 @@ import {
     parseTripJsonFromModel,
     routeLengthMeters,
     tripSearchRadiusKm,
-} from "../trip-generation.mjs";
-import { createAndStoreTripMapImage } from "../trip-map.mjs";
+} from "../services/trip-generation.mjs";
+import { createAndStoreTripMapImage } from "../services/trip-map.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");

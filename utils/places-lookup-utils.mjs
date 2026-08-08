@@ -609,7 +609,7 @@ export const fetchNearbyPlacesPaginated = async (
         geo = reverse;
     }
 
-    const { findNearbySightseeing } = await import("./sightseeing-query.mjs");
+    const { findNearbySightseeing } = await import("../services/sightseeing-query.mjs");
     return findNearbySightseeing(lat, lng, {
         radiusKm,
         limit,

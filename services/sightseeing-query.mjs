@@ -1,5 +1,5 @@
-import { flagFromIsoCode, MAX_NEARBY_RESULTS } from "./geo-location-utils.mjs";
-import { NEARBY_RADIUS_KM } from "./places-lookup-utils.mjs";
+import { flagFromIsoCode, MAX_NEARBY_RESULTS } from "../utils/geo-location-utils.mjs";
+import { NEARBY_RADIUS_KM } from "../utils/places-lookup-utils.mjs";
 import { sightseeingQuery } from "./sightseeing-db.mjs";
 
 /** @typedef {"sitelinks" | "distance"} SightseeingOrderBy */

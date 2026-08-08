@@ -9,7 +9,7 @@ import {
     matchesThreeWayPolicy,
     sendPushToUser,
     userFollows,
-} from "../notification-utils.mjs";
+} from "../utils/notification-utils.mjs";
 
 /**
  * Notifies a user when someone starts following them.

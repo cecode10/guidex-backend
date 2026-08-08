@@ -3,7 +3,7 @@ import {
     buildTripStaticMapUrl,
     extractTripCoordinates,
     TRIP_MAP_SIZE,
-} from "./trip-map.mjs";
+} from "../services/trip-map.mjs";
 
 describe("extractTripCoordinates", () => {
     it("keeps finite lat/lng only", () => {

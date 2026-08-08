@@ -1,13 +1,13 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
 import {
     CHECKIN_NEARBY_DEFAULT_LIMIT,
     NEARBY_RADIUS_KM,
     reverseGeocodeNominatim,
-} from "../places-lookup-utils.mjs";
-import { sightseeingHttpsOptions } from "../sightseeing-function-options.mjs";
-import { findNearbySightseeing } from "../sightseeing-query.mjs";
+} from "../utils/places-lookup-utils.mjs";
+import { sightseeingHttpsOptions } from "../utils/sightseeing-function-options.mjs";
+import { findNearbySightseeing } from "../services/sightseeing-query.mjs";
 
 const FUNCTION_NAME = "resolveNearbyPlaces";
 const MAX_LIMIT = 50;

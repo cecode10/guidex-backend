@@ -1,8 +1,8 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { logExternalApiCacheHit } from "../external-api-debug.mjs";
-import { reverseGeocodeNominatim } from "../places-lookup-utils.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { logExternalApiCacheHit } from "../utils/external-api-debug.mjs";
+import { reverseGeocodeNominatim } from "../utils/places-lookup-utils.mjs";
 
 const FUNCTION_NAME = "resolvePlaceCity";
 

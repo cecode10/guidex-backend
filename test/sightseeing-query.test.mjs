@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { mapSightseeingRowToPlace } from "./sightseeing-query.mjs";
+import { mapSightseeingRowToPlace } from "../services/sightseeing-query.mjs";
 import {
     resetSightseeingPoolForTests,
     resolveSightseeingDatabaseUrl,
-} from "./sightseeing-db.mjs";
+} from "../services/sightseeing-db.mjs";
 
 describe("mapSightseeingRowToPlace", () => {
     it("maps a PostGIS row into the NearLocation-compatible place shape", () => {
@@ -112,7 +112,7 @@ describe("findNearbySightseeing SQL order", () => {
         });
 
         vi.resetModules();
-        vi.doMock("./sightseeing-db.mjs", () => ({
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
             sightseeingQuery: queryMock,
             getSightseeingPool: vi.fn(),
             closeSightseeingPool: vi.fn(),
@@ -120,7 +120,7 @@ describe("findNearbySightseeing SQL order", () => {
             resetSightseeingPoolForTests: vi.fn(),
         }));
 
-        const { findNearbySightseeing } = await import("./sightseeing-query.mjs");
+        const { findNearbySightseeing } = await import("../services/sightseeing-query.mjs");
 
         await findNearbySightseeing(52.5, 13.4, { orderBy: "sitelinks", limit: 10 });
         expect(queryMock.mock.calls[0][0]).toContain("sitelinks DESC");
@@ -128,7 +128,7 @@ describe("findNearbySightseeing SQL order", () => {
         await findNearbySightseeing(52.5, 13.4, { orderBy: "distance", limit: 10 });
         expect(queryMock.mock.calls[1][0]).toContain("distance_m ASC");
 
-        vi.doUnmock("./sightseeing-db.mjs");
+        vi.doUnmock("../services/sightseeing-db.mjs");
         vi.resetModules();
     });
 });

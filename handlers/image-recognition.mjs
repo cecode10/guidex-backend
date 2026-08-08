@@ -1,10 +1,10 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { analyzeImage } from "../open-ai-service.mjs";
-import { requireAuth } from "../auth.mjs";
-import { validateMandatoryFields } from "../event-utils.mjs";
-import { buildLocationPrompt } from "../prompts.mjs";
-import { getImageRecognitionPrompt } from "../system-prompt.mjs";
+import { analyzeImage } from "../services/open-ai-service.mjs";
+import { requireAuth } from "../utils/auth.mjs";
+import { validateMandatoryFields } from "../utils/event-utils.mjs";
+import { buildLocationPrompt } from "../prompts/prompts.mjs";
+import { getImageRecognitionPrompt } from "../prompts/system-prompt.mjs";
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 

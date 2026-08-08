@@ -1,14 +1,14 @@
 import {
     logExternalApiRequest,
     logExternalApiResponse,
-} from "./external-api-debug.mjs";
+} from "../utils/external-api-debug.mjs";
 import {
     countryCodeFromGeocodeResult,
     deriveGeoLocationLabel,
     flagFromIsoCode,
     geoLocationPopularKeyFromCoords,
-} from "./geo-location-utils.mjs";
-import { NEARBY_RADIUS_KM } from "./places-lookup-utils.mjs";
+} from "../utils/geo-location-utils.mjs";
+import { NEARBY_RADIUS_KM } from "../utils/places-lookup-utils.mjs";
 import { resolveExplorePopularPlacesFromDb } from "./sightseeing-query.mjs";
 
 export const GOOGLE_GEOCODE_TIMEOUT_MS = 12_000;
