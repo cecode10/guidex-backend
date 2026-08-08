@@ -9,6 +9,7 @@ const getClient = () => {
 };
 
 const model = "gpt-5.6-luna";
+const model41mini = "gpt-4.1-mini";
 const model40tts = "gpt-4o-mini-tts";
 
 const normalizeOpenAiError = (error) => {
@@ -69,28 +70,32 @@ export const analyzeImage = async (image, prompt) => {
     }
 }
 
-const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => ({
-    model,
-    instructions: systemPrompt,
-    input: userPrompt,
-    tools: [{ type: "web_search" }],
-    ...options,
-});
+const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => {
+    const { model: modelOverride, ...rest } = options;
+    return {
+        model: modelOverride || model,
+        instructions: systemPrompt,
+        input: userPrompt,
+        tools: [{ type: "web_search" }],
+        ...rest,
+    };
+};
 
-export const answerToPrompt = async (systemPrompt, userPrompt) => {
+export const answerToPrompt = async (systemPrompt, userPrompt, options = {}) => {
     if (!systemPrompt?.trim()) {
         throw new Error("system prompt is required");
     }
     if (!userPrompt?.trim()) {
         throw new Error("user prompt is required");
     }
+    const resolvedModel = options.model || model;
     console.log("systemPrompt = " + systemPrompt);
     console.log("userPrompt = " + userPrompt);
-    console.log("using model = " + model);
+    console.log("using model = " + resolvedModel);
     try {
         const start = Date.now();
         const response = await getClient().responses.create(
-            buildTextPromptPayload(systemPrompt, userPrompt),
+            buildTextPromptPayload(systemPrompt, userPrompt, options),
         );
         const elapsed = Date.now() - start;
         console.log(`[answerToPrompt] OpenAI API responded in ${elapsed}ms`);
@@ -99,6 +104,10 @@ export const answerToPrompt = async (systemPrompt, userPrompt) => {
         throw normalizeOpenAiError(error);
     }
 }
+
+/** Summary generation — kept on gpt-4.1-mini. */
+export const genereateSummary = async (systemPrompt, userPrompt) =>
+    answerToPrompt(systemPrompt, userPrompt, { model: model41mini });
 
 /** Non-streaming completion without tools — for grounded JSON tasks. */
 export const answerToPromptPlain = async (systemPrompt, userPrompt) => {

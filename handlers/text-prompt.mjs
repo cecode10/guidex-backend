@@ -1,6 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { answerToPrompt, answerToPromptStreaming } from "../services/open-ai-service.mjs";
+import { answerToPromptStreaming, genereateSummary } from "../services/open-ai-service.mjs";
 import { getSystemPrompt, getSummaryPrompt } from "../prompts/system-prompt.mjs";
 import { requireAuth } from "../utils/auth.mjs";
 import { validateMandatoryFields } from "../utils/event-utils.mjs";
@@ -55,7 +55,7 @@ export const textPrompt = onRequest(
             if (payload.generate_summary) {
                 console.log("generating summary with prompt = " + topic);
                 const summaryPrompt = getSummaryPrompt(language);
-                const responseSummary = await answerToPrompt(summaryPrompt, topic);
+                const responseSummary = await genereateSummary(summaryPrompt, topic);
                 console.log("response_summary = " + responseSummary);
                 sendSseEvent(res, { response_summary: responseSummary }, "summary");
             }
