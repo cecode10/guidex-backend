@@ -7,6 +7,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Firebase Auth email ownership flag (set after verification link / SSO).
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // Prefer for content writes; profile bootstrap may run before verification.
+    function isSignedInAndVerified() {
+      return isSignedIn() && isEmailVerified();
+    }
+
     // Who may follow this user (mirrors app `ProfilePrivacyService`).
     function effectiveWhoCanFollowMe(data) {
       let raw = data == null ? 'everyone' : (
@@ -40,9 +50,9 @@ service cloud.firestore {
       match /friends/{friendId} {
         // Anyone logged in can see who someone follows
         allow read: if isSignedIn();
-        allow delete: if isSignedIn() && request.auth.uid == userId;
-        allow update: if isSignedIn() && request.auth.uid == userId;
-        allow create: if isSignedIn()
+        allow delete: if isSignedInAndVerified() && request.auth.uid == userId;
+        allow update: if isSignedInAndVerified() && request.auth.uid == userId;
+        allow create: if isSignedInAndVerified()
           && request.auth.uid == userId
           && followCreateAllowed(
             get(/databases/$(database)/documents/users/$(friendId)).data,
@@ -54,13 +64,13 @@ service cloud.firestore {
       // Explore bookmarks
       match /bookmarks/{bookmarkId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && request.auth.uid == userId;
+        allow write: if isSignedInAndVerified() && request.auth.uid == userId;
       }
 
       // Curated trips built from saved places
       match /trips/{tripId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && request.auth.uid == userId;
+        allow write: if isSignedInAndVerified() && request.auth.uid == userId;
       }
 
       // FCM device tokens for push notifications (one doc per device).
@@ -75,16 +85,16 @@ service cloud.firestore {
       // Checkmarks check-ins
       match /checkins/{checkInId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn()
+        allow create: if isSignedInAndVerified()
           && request.auth.uid == userId
           && request.resource.data.userId == userId;
-        allow delete: if isSignedIn() && request.auth.uid == userId;
+        allow delete: if isSignedInAndVerified() && request.auth.uid == userId;
         // Signed-in users may update likeCount via like transactions.
-        allow update: if isSignedIn();
+        allow update: if isSignedInAndVerified();
 
         match /likes/{likerId} {
           allow read: if isSignedIn();
-          allow write: if isSignedIn() && request.auth.uid == likerId;
+          allow write: if isSignedInAndVerified() && request.auth.uid == likerId;
         }
       }
     }
@@ -106,17 +116,19 @@ service cloud.firestore {
       // Anyone logged in can read the feed
       allow read: if isSignedIn();
       // Anyone logged in can create a post
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow create: if isSignedInAndVerified()
+        && request.resource.data.authorId == request.auth.uid;
       // Only the author can delete their post
-      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow delete: if isSignedInAndVerified()
+        && resource.data.authorId == request.auth.uid;
       // Updates are generally restricted, except for incrementing like counts (handled via transactions)
-      allow update: if isSignedIn();
+      allow update: if isSignedInAndVerified();
 
       // Likes Subcollection
       match /likes/{userId} {
         allow read: if isSignedIn();
         // Users can only add/remove their own likes
-        allow write: if isSignedIn() && request.auth.uid == userId;
+        allow write: if isSignedInAndVerified() && request.auth.uid == userId;
       }
     }
 
@@ -148,7 +160,8 @@ service cloud.firestore {
     // Customer Feedback Collection
     match /customer-feedback/{feedbackId} {
       // Anyone logged in can submit feedback
-      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow create: if isSignedInAndVerified()
+        && request.resource.data.customerId == request.auth.uid;
 
       // No one can read, update, or delete feedback from the client app
       allow read, update, delete: if false;
