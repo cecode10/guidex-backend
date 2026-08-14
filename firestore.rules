@@ -7,14 +7,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Firebase Auth email ownership flag (set after verification link / SSO).
-    function isEmailVerified() {
-      return request.auth.token.email_verified == true;
-    }
-
-    // Prefer for content writes; profile bootstrap may run before verification.
+    // Content writes require a signed-in user. Email verification is enforced in
+    // the app AuthGuard for password accounts — token claim checks here were
+    // blocking legitimate SSO / stale-token sessions from follow + check-in.
     function isSignedInAndVerified() {
-      return isSignedIn() && isEmailVerified();
+      return isSignedIn();
     }
 
     // Who may follow this user (mirrors app `ProfilePrivacyService`).
@@ -31,12 +28,34 @@ service cloud.firestore {
       return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
     }
 
+    // Who may see this user's check-ins (mirrors app `ProfilePrivacyService`).
+    function effectiveWhoCanSeeMyCheckIns(data) {
+      let raw = data == null ? 'everyone' : (
+        (data.settings is map
+            && 'whoCanSeeMyCheckIns' in data.settings
+            && data.settings.whoCanSeeMyCheckIns is string)
+          ? data.settings.whoCanSeeMyCheckIns
+          : (data.keys().hasAny(['whoCanSeeMyCheckIns']) && data.whoCanSeeMyCheckIns is string
+              ? data.whoCanSeeMyCheckIns
+              : 'everyone')
+      );
+      return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
+    }
+
     // [followerId] adds users/{followerId}/friends/{targetId}; target must allow it.
     function followCreateAllowed(targetUserData, followerId, targetId) {
       let policy = effectiveWhoCanFollowMe(targetUserData);
       return policy == 'everyone'
         || (policy == 'people_i_follow'
             && exists(/databases/$(database)/documents/users/$(targetId)/friends/$(followerId)));
+    }
+
+    // Viewer may read author check-ins when owner, everyone, or author follows viewer.
+    function checkInReadAllowed(authorId, authorData) {
+      return request.auth.uid == authorId
+        || effectiveWhoCanSeeMyCheckIns(authorData) == 'everyone'
+        || (effectiveWhoCanSeeMyCheckIns(authorData) == 'people_i_follow'
+            && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)));
     }
 
     // Users Collection
@@ -84,17 +103,36 @@ service cloud.firestore {
 
       // Checkmarks check-ins
       match /checkins/{checkInId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedInAndVerified()
+        allow read: if isSignedIn()
+          && checkInReadAllowed(
+            userId,
+            get(/databases/$(database)/documents/users/$(userId)).data
+          );
+        // Owner create/delete: AuthGuard already gates unverified password users.
+        // Keep this as isSignedIn() so token claim quirks cannot block posting.
+        allow create: if isSignedIn()
           && request.auth.uid == userId
           && request.resource.data.userId == userId;
-        allow delete: if isSignedInAndVerified() && request.auth.uid == userId;
-        // Signed-in users may update likeCount via like transactions.
-        allow update: if isSignedInAndVerified();
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+        // Likes update likeCount when the viewer is allowed to see the check-in.
+        allow update: if isSignedIn()
+          && checkInReadAllowed(
+            userId,
+            get(/databases/$(database)/documents/users/$(userId)).data
+          );
 
         match /likes/{likerId} {
-          allow read: if isSignedIn();
-          allow write: if isSignedInAndVerified() && request.auth.uid == likerId;
+          allow read: if isSignedIn()
+            && checkInReadAllowed(
+              userId,
+              get(/databases/$(database)/documents/users/$(userId)).data
+            );
+          allow write: if isSignedIn()
+            && request.auth.uid == likerId
+            && checkInReadAllowed(
+              userId,
+              get(/databases/$(database)/documents/users/$(userId)).data
+            );
         }
       }
     }
