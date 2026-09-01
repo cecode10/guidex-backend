@@ -56,6 +56,7 @@ export const analyzeImage = async (image, prompt) => {
                 ],
             },
         ],
+        tools: [{ type: "web_search" }],
     };
     // console.log("payload = " + JSON.stringify(payload));
     try {

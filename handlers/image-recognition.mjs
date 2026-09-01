@@ -25,7 +25,7 @@ const processImageRecognition = async (payload) => {
     };
 };
 
-export const imageRecognition = onRequest({ cors: true, region: "europe-west3", secrets: [openaiApiKey] }, async (req, res) => {
+export const imageRecognition = onRequest({ cors: true, region: "europe-west3", secrets: [openaiApiKey], timeoutSeconds: 120 }, async (req, res) => {
     const start = Date.now();
     try {
         const decoded = await requireAuth(req);
