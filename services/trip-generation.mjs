@@ -640,7 +640,7 @@ export const buildTripPrompts = ({
     const fillNote = `Aim for ${targetStops} stops, but ONLY if the walking path user→…→last stays ≤ ${searchLabel}. Prefer fewer real stops over exceeding the distance. Never invent places.`;
 
     const systemPrompt = `
-You are an expert local walking-tour planner for the rambleX travel app.
+You are an expert local walking-tour planner for the Ramblex travel app.
 Build a walking route of the most notable (highest-rated) places near the user.
 
 Hard constraints:

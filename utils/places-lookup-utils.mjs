@@ -51,12 +51,12 @@ export const NOMINATIM_TIMEOUT_MS = 12_000;
 export const WIKIDATA_API_TIMEOUT_MS = 30_000;
 
 export const WIKI_SPARQL_HEADERS = {
-    "User-Agent": "rambleX-mobile (https://ramblex.app)",
+    "User-Agent": "Ramblex-mobile (https://ramblex.app)",
     Accept: "application/sparql-results+json",
 };
 
 export const WIKI_API_HEADERS = {
-    "User-Agent": "rambleX-mobile (https://ramblex.app)",
+    "User-Agent": "Ramblex-mobile (https://ramblex.app)",
     Accept: "application/json",
 };
 
@@ -468,7 +468,7 @@ export const reverseGeocodeNominatim = async (lat, lng, fetchImpl = fetch) => {
         logExternalApiRequestUrl(url, { extra: `nominatim-reverse lat=${lat} lng=${lng}` });
         const response = await fetchImpl(url, {
             headers: {
-                "User-Agent": "rambleX-mobile (https://ramblex.app)",
+                "User-Agent": "Ramblex-mobile (https://ramblex.app)",
                 "Accept-Language": "en",
             },
             signal: controller.signal,

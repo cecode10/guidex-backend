@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { cert } from "firebase-admin/app";
 
 export const WIKI_HEADERS = {
-    "User-Agent": "rambleX-mobile (https://ramblex.app)",
+    "User-Agent": "Ramblex-mobile (https://ramblex.app)",
     Accept: "application/json",
 };
 
