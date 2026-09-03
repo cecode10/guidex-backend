@@ -13,10 +13,10 @@
  *
  * Usage
  * -----
- *   node scripts/seed-sightseeing-from-qids.mjs --file scripts/qids.txt
- *   node scripts/seed-sightseeing-from-qids.mjs --qid Q243 --qid Q1054070
- *   node scripts/seed-sightseeing-from-qids.mjs Q243 Q1054070 --dry-run
- *   node scripts/seed-sightseeing-from-qids.mjs --file scripts/qids.txt --direct
+ *   node scripts/seed/seed-sightseeing-from-qids.mjs --file scripts/seed/qids.txt
+ *   node scripts/seed/seed-sightseeing-from-qids.mjs --qid Q243 --qid Q1054070
+ *   node scripts/seed/seed-sightseeing-from-qids.mjs Q243 Q1054070 --dry-run
+ *   node scripts/seed/seed-sightseeing-from-qids.mjs --file scripts/seed/qids.txt --direct
  *
  * Input file formats
  * ------------------
@@ -36,7 +36,7 @@
  *   --uid UID           Auth uid for the minted ID token (default: seed-sightseeing-admin)
  *   --direct            Call Postgres directly instead of the HTTP API
  *   --database-url URL  Only with --direct
- *   --report-dir PATH   Report output dir (default: scripts/reports)
+ *   --report-dir PATH   Report output dir (default: scripts/seed/reports)
  */
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -45,8 +45,8 @@ import { getAuth } from "firebase-admin/auth";
 import {
     ensureSightseeingByQid,
     parseWikidataQid,
-} from "../services/ensure-sightseeing-by-qid.mjs";
-import { closeSightseeingPool } from "../services/sightseeing-db.mjs";
+} from "../../services/ensure-sightseeing-by-qid.mjs";
+import { closeSightseeingPool } from "../../services/sightseeing-db.mjs";
 import {
     loadCredential,
     resolveBackendUrl,
@@ -120,7 +120,7 @@ export function parseArgs(argv) {
             opts.reportDir = next;
             i++;
         } else if (arg === "--help" || arg === "-h") {
-            console.log(`Usage: node scripts/seed-sightseeing-from-qids.mjs [--file PATH] [--qid Q…] [Q…]
+            console.log(`Usage: node scripts/seed/seed-sightseeing-from-qids.mjs [--file PATH] [--qid Q…] [Q…]
 
 Default: POST each QID to ensureSightseeingByQid (Cloud Function).
 Optional --direct: talk to Postgres in-process (needs a reachable DATABASE_URL).

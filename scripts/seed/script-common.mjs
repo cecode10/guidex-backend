@@ -77,6 +77,7 @@ export function parseEnvFile(filePath) {
  */
 export function loadMobileAppEnv() {
     const candidates = [
+        join(__dirname, "..", "..", "..", "mobile-app", ".env"),
         join(__dirname, "..", "..", "mobile-app", ".env"),
         join(process.cwd(), "..", "mobile-app", ".env"),
         join(process.cwd(), "mobile-app", ".env"),
@@ -137,19 +138,28 @@ export function resolveBackendUrl(explicit = "", fallback = "") {
 }
 
 /**
- * Newest `scripts/guidex-afc30-*.json`, or null if none.
+ * Newest `guidex-afc30-*.json` in `scripts/seed/` or `scripts/`, or null if none.
  * @returns {string | null}
  */
 export function findAutoCredentialsPath() {
     /** @type {Array<{ path: string, mtimeMs: number }>} */
     const matches = [];
-    for (const name of readdirSync(__dirname)) {
-        if (!/^guidex-afc30-.*\.json$/i.test(name)) continue;
-        const path = join(__dirname, name);
+    const dirs = [__dirname, join(__dirname, "..")];
+    for (const dir of dirs) {
+        let names = [];
         try {
-            matches.push({ path, mtimeMs: statSync(path).mtimeMs });
+            names = readdirSync(dir);
         } catch {
-            // ignore unreadable entries
+            continue;
+        }
+        for (const name of names) {
+            if (!/^guidex-afc30-.*\.json$/i.test(name)) continue;
+            const path = join(dir, name);
+            try {
+                matches.push({ path, mtimeMs: statSync(path).mtimeMs });
+            } catch {
+                // ignore unreadable entries
+            }
         }
     }
     if (matches.length === 0) return null;
@@ -176,13 +186,15 @@ export function resolveCredentialsPath(explicitPath, scriptLabel = "script") {
     if (envRaw) {
         const basename = envRaw.split(/[/\\]/).pop() ?? envRaw;
         const inScripts = join(__dirname, basename);
+        const inParent = join(__dirname, "..", basename);
         if (existsSync(inScripts)) return inScripts;
+        if (existsSync(inParent)) return inParent;
     }
 
     console.error(`
 Could not find Firebase service account credentials for ${scriptLabel}.
 
-Place a service account JSON in scripts/ matching:
+Place a service account JSON in scripts/ or scripts/seed/ matching:
 
   scripts/guidex-afc30-*.json
 

@@ -1,4 +1,4 @@
-# Europe sightseeing (PostGIS)
+# Sightseeing (PostGIS)
 
 Explore (`resolveNearMePopular`, `resolveGlobalSearchPopular`) and check-in nearby
 (`resolveNearbyPlaces`) read tourist destinations from Cloud SQL Postgres + PostGIS.
@@ -13,6 +13,26 @@ psql "$DATABASE_URL" -f db/001_sightseeing.sql
 # or: npm run script:sightseeing:migrate
 ```
 
+## Seed
+
+Populate the `sightseeing` table from Wikidata. Full usage is in
+[`scripts/seed/README.md`](../scripts/seed/README.md).
+
+```bash
+export DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/sightseeing
+# use Cloud SQL Auth Proxy for private IP
+
+# one city or country
+npm run script:sightseeing:seed -- --city "San Francisco"
+npm run script:sightseeing:seed -- --country USA
+
+# whole continent (fixed country lists)
+npm run script:sightseeing:seed-europe -- --country=Malta
+npm run script:sightseeing:seed-north-america -- --country=USA
+```
+
+Upserts merge by `wikidata_id`. Resume a long run with `--resume`.
+
 ## Seed specific QIDs (admin)
 
 Calls the deployed `ensureSightseeingByQid` Cloud Function (no local DB access needed):
@@ -20,8 +40,8 @@ Calls the deployed `ensureSightseeingByQid` Cloud Function (no local DB access n
 ```bash
 # credentials: scripts/guidex-afc30-*.json
 # API key + BACKEND_URL: auto-read from mobile-app/.env
-npm run script:sightseeing:seed-qids:dry-run -- --file scripts/qids.txt
-npm run script:sightseeing:seed-qids -- --file scripts/qids.txt
+npm run script:sightseeing:seed-qids:dry-run -- --file scripts/seed/qids.txt
+npm run script:sightseeing:seed-qids -- --file scripts/seed/qids.txt
 npm run script:sightseeing:seed-qids -- --qid Q243 --qid Q1054070
 ```
 

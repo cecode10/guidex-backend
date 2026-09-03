@@ -4,7 +4,7 @@ import {
     extractQidsFromText,
     normalizeQidList,
     parseArgs,
-} from "../scripts/seed-sightseeing-from-qids.mjs";
+} from "../scripts/seed/seed-sightseeing-from-qids.mjs";
 
 describe("parseArgs", () => {
     it("collects file, flags, and positional QIDs", () => {

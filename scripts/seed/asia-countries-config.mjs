@@ -1,0 +1,57 @@
+/**
+ * Asian countries/territories for sightseeing seed.
+ * Transcontinental states already on the Europe list (Russia, Turkey, Georgia,
+ * Armenia, Azerbaijan) are omitted here to avoid double-running the same QID.
+ *
+ * @typedef {import("./seed-continent.mjs").ContinentCountry} ContinentCountry
+ */
+
+/** @type {ContinentCountry[]} */
+export const ASIA_COUNTRIES = [
+    { name: "Afghanistan", wikidataId: "Q889", iso2: "AF" },
+    { name: "Bahrain", wikidataId: "Q398", iso2: "BH" },
+    { name: "Bangladesh", wikidataId: "Q902", iso2: "BD" },
+    { name: "Bhutan", wikidataId: "Q917", iso2: "BT" },
+    { name: "Brunei", wikidataId: "Q921", iso2: "BN" },
+    { name: "Cambodia", wikidataId: "Q424", iso2: "KH" },
+    { name: "China", wikidataId: "Q148", iso2: "CN" },
+    { name: "East Timor", wikidataId: "Q574", iso2: "TL", aliases: ["Timor-Leste"] },
+    { name: "Hong Kong", wikidataId: "Q8646", iso2: "HK" },
+    { name: "India", wikidataId: "Q668", iso2: "IN" },
+    { name: "Indonesia", wikidataId: "Q252", iso2: "ID" },
+    { name: "Iran", wikidataId: "Q794", iso2: "IR" },
+    { name: "Iraq", wikidataId: "Q796", iso2: "IQ" },
+    { name: "Israel", wikidataId: "Q801", iso2: "IL" },
+    { name: "Japan", wikidataId: "Q17", iso2: "JP" },
+    { name: "Jordan", wikidataId: "Q810", iso2: "JO" },
+    { name: "Kazakhstan", wikidataId: "Q232", iso2: "KZ" },
+    { name: "Kuwait", wikidataId: "Q817", iso2: "KW" },
+    { name: "Kyrgyzstan", wikidataId: "Q813", iso2: "KG" },
+    { name: "Laos", wikidataId: "Q819", iso2: "LA" },
+    { name: "Lebanon", wikidataId: "Q822", iso2: "LB" },
+    { name: "Macau", wikidataId: "Q14773", iso2: "MO" },
+    { name: "Malaysia", wikidataId: "Q833", iso2: "MY" },
+    { name: "Maldives", wikidataId: "Q826", iso2: "MV" },
+    { name: "Mongolia", wikidataId: "Q711", iso2: "MN" },
+    { name: "Myanmar", wikidataId: "Q836", iso2: "MM", aliases: ["Burma"] },
+    { name: "Nepal", wikidataId: "Q837", iso2: "NP" },
+    { name: "North Korea", wikidataId: "Q423", iso2: "KP" },
+    { name: "Oman", wikidataId: "Q842", iso2: "OM" },
+    { name: "Pakistan", wikidataId: "Q843", iso2: "PK" },
+    { name: "Palestine", wikidataId: "Q219060", iso2: "PS" },
+    { name: "Philippines", wikidataId: "Q928", iso2: "PH" },
+    { name: "Qatar", wikidataId: "Q846", iso2: "QA" },
+    { name: "Saudi Arabia", wikidataId: "Q851", iso2: "SA" },
+    { name: "Singapore", wikidataId: "Q334", iso2: "SG" },
+    { name: "South Korea", wikidataId: "Q884", iso2: "KR" },
+    { name: "Sri Lanka", wikidataId: "Q854", iso2: "LK" },
+    { name: "Syria", wikidataId: "Q858", iso2: "SY" },
+    { name: "Taiwan", wikidataId: "Q865", iso2: "TW" },
+    { name: "Tajikistan", wikidataId: "Q863", iso2: "TJ" },
+    { name: "Thailand", wikidataId: "Q869", iso2: "TH" },
+    { name: "Turkmenistan", wikidataId: "Q874", iso2: "TM" },
+    { name: "United Arab Emirates", wikidataId: "Q878", iso2: "AE", aliases: ["UAE"] },
+    { name: "Uzbekistan", wikidataId: "Q265", iso2: "UZ" },
+    { name: "Vietnam", wikidataId: "Q881", iso2: "VN" },
+    { name: "Yemen", wikidataId: "Q805", iso2: "YE" },
+];
