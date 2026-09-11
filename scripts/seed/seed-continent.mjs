@@ -96,6 +96,7 @@ export async function runContinentSeed({
         console.log(`Usage: node scripts/seed/seed-${slug}-sightseeing.mjs [--country NAME] [--dry-run]
 
 ${label} bulk seed from a fixed country list.
+Existing sightseeing QIDs are skipped unless you pass --update-existing.
 For an arbitrary city or country use: node scripts/seed/seed-sightseeing.mjs --city|--country`);
         process.exit(0);
     }

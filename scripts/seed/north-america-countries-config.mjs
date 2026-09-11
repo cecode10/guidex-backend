@@ -9,30 +9,6 @@
 /** @type {ContinentCountry[]} */
 export const NORTH_AMERICA_COUNTRIES = [
     // Northern America
-    {
-        name: "United States",
-        wikidataId: "Q30",
-        iso2: "US",
-        aliases: ["USA", "America"],
-        bounds: { minLon: -125, maxLon: -66.5, minLat: 24.5, maxLat: 49.5 },
-    },
-    {
-        name: "Canada",
-        wikidataId: "Q16",
-        iso2: "CA",
-        bounds: { minLon: -141, maxLon: -52, minLat: 41.5, maxLat: 70 },
-    },
-    { name: "Greenland", wikidataId: "Q223", iso2: "GL" },
-    { name: "Bermuda", wikidataId: "Q23635", iso2: "BM" },
-    { name: "Saint Pierre and Miquelon", wikidataId: "Q34617", iso2: "PM" },
-
-    // Mexico + Central America
-    {
-        name: "Mexico",
-        wikidataId: "Q96",
-        iso2: "MX",
-        bounds: { minLon: -118.5, maxLon: -86.5, minLat: 14.5, maxLat: 32.8 },
-    },
     { name: "Guatemala", wikidataId: "Q774", iso2: "GT" },
     { name: "Belize", wikidataId: "Q242", iso2: "BZ" },
     { name: "El Salvador", wikidataId: "Q792", iso2: "SV" },
@@ -60,4 +36,28 @@ export const NORTH_AMERICA_COUNTRIES = [
     { name: "Grenada", wikidataId: "Q769", iso2: "GD" },
     { name: "Dominica", wikidataId: "Q784", iso2: "DM" },
     { name: "Saint Vincent and the Grenadines", wikidataId: "Q757", iso2: "VC" },
+    {
+        name: "Canada",
+        wikidataId: "Q16",
+        iso2: "CA",
+        bounds: { minLon: -141, maxLon: -52, minLat: 41.5, maxLat: 70 },
+    },
+    { name: "Greenland", wikidataId: "Q223", iso2: "GL" },
+    { name: "Bermuda", wikidataId: "Q23635", iso2: "BM" },
+    { name: "Saint Pierre and Miquelon", wikidataId: "Q34617", iso2: "PM" },
+
+    // Mexico + Central America
+    {
+        name: "Mexico",
+        wikidataId: "Q96",
+        iso2: "MX",
+        bounds: { minLon: -118.5, maxLon: -86.5, minLat: 14.5, maxLat: 32.8 },
+    },
+    // {
+    //     name: "United States",
+    //     wikidataId: "Q30",
+    //     iso2: "US",
+    //     aliases: ["USA", "America"],
+    //     bounds: { minLon: -125, maxLon: -66.5, minLat: 24.5, maxLat: 49.5 },
+    // },
 ];

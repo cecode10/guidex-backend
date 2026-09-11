@@ -419,13 +419,67 @@ export function isRetryableRegionError(error) {
     );
 }
 
+const EXISTING_QID_CHUNK = 500;
+
+/**
+ * @param {string[]} qids
+ * @returns {Promise<Set<string>>}
+ */
+export async function existingSightseeingQids(qids) {
+    const existing = new Set();
+    const unique = [...new Set(qids.map(String).filter(Boolean))];
+    for (let i = 0; i < unique.length; i += EXISTING_QID_CHUNK) {
+        const chunk = unique.slice(i, i + EXISTING_QID_CHUNK);
+        const result = await sightseeingQuery(
+            `SELECT wikidata_id FROM sightseeing WHERE wikidata_id = ANY($1::text[])`,
+            [chunk],
+        );
+        for (const row of result.rows ?? []) {
+            existing.add(String(row.wikidata_id));
+        }
+    }
+    return existing;
+}
+
 /**
  * @param {Array<Record<string, unknown>>} rows
+ * @param {Set<string>} existingQids
+ * @returns {{ toWrite: Array<Record<string, unknown>>, skipped: number }}
+ */
+export function splitRowsByExisting(rows, existingQids) {
+    const toWrite = [];
+    let skipped = 0;
+    for (const row of rows) {
+        if (existingQids.has(String(row.wikidata_id))) skipped += 1;
+        else toWrite.push(row);
+    }
+    return { toWrite, skipped };
+}
+
+/**
+ * @param {Array<Record<string, unknown>>} rows
+ * @param {{ updateExisting?: boolean }} [options]
  * @returns {Promise<number>}
  */
-export async function upsertSightseeingRows(rows) {
+export async function upsertSightseeingRows(rows, { updateExisting = false } = {}) {
     if (rows.length === 0) return 0;
     let written = 0;
+    const conflictSql = updateExisting
+        ? `ON CONFLICT (wikidata_id) DO UPDATE SET
+  name = EXCLUDED.name,
+  type = EXCLUDED.type,
+  category_label = EXCLUDED.category_label,
+  country_code = EXCLUDED.country_code,
+  country = EXCLUDED.country,
+  city = EXCLUDED.city,
+  sitelinks = EXCLUDED.sitelinks,
+  image_url = EXCLUDED.image_url,
+  wikipedia_url = EXCLUDED.wikipedia_url,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = now()`
+        : `ON CONFLICT (wikidata_id) DO NOTHING`;
 
     for (let start = 0; start < rows.length; start += UPSERT_BATCH_SIZE) {
         const batch = rows.slice(start, start + UPSERT_BATCH_SIZE);
@@ -460,20 +514,7 @@ INSERT INTO sightseeing (
   sitelinks, image_url, wikipedia_url, lat, lng, location, updated_at
 ) VALUES
   ${values.join(",\n  ")}
-ON CONFLICT (wikidata_id) DO UPDATE SET
-  name = EXCLUDED.name,
-  type = EXCLUDED.type,
-  category_label = EXCLUDED.category_label,
-  country_code = EXCLUDED.country_code,
-  country = EXCLUDED.country,
-  city = EXCLUDED.city,
-  sitelinks = EXCLUDED.sitelinks,
-  image_url = EXCLUDED.image_url,
-  wikipedia_url = EXCLUDED.wikipedia_url,
-  lat = EXCLUDED.lat,
-  lng = EXCLUDED.lng,
-  location = EXCLUDED.location,
-  updated_at = now()
+${conflictSql}
 `.trim();
 
         let lastError = null;
@@ -503,6 +544,31 @@ ON CONFLICT (wikidata_id) DO UPDATE SET
     }
 
     return written;
+}
+
+/**
+ * @param {Array<Record<string, unknown>>} rows
+ * @param {{ dryRun: boolean, updateExisting: boolean, label: string }} options
+ * @returns {Promise<{ upserted: number, skipped: number }>}
+ */
+export async function persistSightseeingRows(rows, { dryRun, updateExisting, label }) {
+    if (rows.length === 0) return { upserted: 0, skipped: 0 };
+    if (dryRun) {
+        console.log(
+            `[seed] dry-run would ${updateExisting ? "upsert" : "insert"} ${rows.length} rows for ${label}` +
+                (updateExisting ? "" : " (existing IDs are skipped only on a real run)"),
+        );
+        return { upserted: rows.length, skipped: 0 };
+    }
+    if (updateExisting) {
+        const upserted = await upsertSightseeingRows(rows, { updateExisting: true });
+        return { upserted, skipped: 0 };
+    }
+    const existing = await existingSightseeingQids(rows.map((row) => row.wikidata_id));
+    const { toWrite, skipped } = splitRowsByExisting(rows, existing);
+    const upserted = await upsertSightseeingRows(toWrite, { updateExisting: false });
+    console.log(`[seed] ${label} insert=${upserted} skip-existing=${skipped}`);
+    return { upserted, skipped };
 }
 
 /**
@@ -588,6 +654,7 @@ export function parseSharedSeedOpts(argv) {
         forceTiles: false,
         regionRetries: DEFAULT_REGION_RETRIES,
         migrateDb: false,
+        updateExisting: false,
         noCaffeinate: false,
         reportDir: "reports",
         databaseUrl: "",
@@ -600,6 +667,7 @@ export function parseSharedSeedOpts(argv) {
         const next = argv[i + 1];
         if (arg === "--dry-run") opts.dryRun = true;
         else if (arg === "--migrate-db") opts.migrateDb = true;
+        else if (arg === "--update-existing") opts.updateExisting = true;
         else if (arg === "--resume") opts.resume = true;
         else if (arg === "--force-tiles") opts.forceTiles = true;
         else if (arg === "--no-caffeinate") opts.noCaffeinate = true;
@@ -941,10 +1009,11 @@ export async function resolveSeedPlace({
  *   maxSitelinks?: number | null,
  *   delayMs: number,
  *   dryRun: boolean,
+ *   updateExisting?: boolean,
  *   depth?: number,
  *   fetchImpl?: typeof fetch,
  * }} options
- * @returns {Promise<{ fetched: number, upserted: number, pages: number, tileErrors?: string[] }>}
+ * @returns {Promise<{ fetched: number, upserted: number, skipped: number, pages: number, tileErrors?: string[] }>}
  */
 async function seedRegionTile({
     region,
@@ -954,11 +1023,11 @@ async function seedRegionTile({
     maxSitelinks = null,
     delayMs,
     dryRun,
+    updateExisting = false,
     depth = 0,
     fetchImpl = fetch,
 }) {
     let offset = 0;
-    let upserted = 0;
     let pages = 0;
     /** @type {Map<string, Record<string, unknown>>} */
     const seen = new Map();
@@ -1009,6 +1078,7 @@ async function seedRegionTile({
                     maxSitelinks,
                     delayMs,
                     dryRun,
+                    updateExisting,
                     depth,
                     fetchImpl,
                 });
@@ -1032,6 +1102,7 @@ async function seedRegionTile({
                     maxSitelinks,
                     delayMs,
                     dryRun,
+                    updateExisting,
                     depth: 0,
                     fetchImpl,
                 });
@@ -1054,14 +1125,19 @@ async function seedRegionTile({
     }
 
     const rows = [...seen.values()];
-    if (!dryRun) {
-        upserted = await upsertSightseeingRows(rows);
-    } else {
-        upserted = rows.length;
-        console.log(`[seed] dry-run would upsert ${rows.length} rows for ${region.name}`);
-    }
+    const persisted = await persistSightseeingRows(rows, {
+        dryRun,
+        updateExisting,
+        label: region.name,
+    });
 
-    return { fetched: rows.length, upserted, pages, tileErrors: [] };
+    return {
+        fetched: rows.length,
+        upserted: persisted.upserted,
+        skipped: persisted.skipped,
+        pages,
+        tileErrors: [],
+    };
 }
 
 /**
@@ -1073,9 +1149,11 @@ async function seedRegionTile({
  *   maxSitelinks?: number | null,
  *   delayMs: number,
  *   dryRun: boolean,
+ *   updateExisting?: boolean,
  *   depth?: number,
  *   fetchImpl?: typeof fetch,
  * }} options
+ * @returns {Promise<{ fetched: number, upserted: number, skipped: number, pages: number, tileErrors: string[] }>}
  */
 async function seedRegionTilesFanout({
     region,
@@ -1085,6 +1163,7 @@ async function seedRegionTilesFanout({
     maxSitelinks = null,
     delayMs,
     dryRun,
+    updateExisting = false,
     depth = 0,
     fetchImpl = fetch,
 }) {
@@ -1096,6 +1175,7 @@ async function seedRegionTilesFanout({
 
     let fetched = 0;
     let upserted = 0;
+    let skipped = 0;
     let pages = 0;
     /** @type {string[]} */
     const tileErrors = [];
@@ -1112,11 +1192,13 @@ async function seedRegionTilesFanout({
                 maxSitelinks,
                 delayMs,
                 dryRun,
+                updateExisting,
                 depth: depth + 1,
                 fetchImpl,
             });
             fetched += sub.fetched;
             upserted += sub.upserted;
+            skipped += sub.skipped || 0;
             pages += sub.pages;
             if (Array.isArray(sub.tileErrors) && sub.tileErrors.length) {
                 tileErrors.push(...sub.tileErrors);
@@ -1130,7 +1212,7 @@ async function seedRegionTilesFanout({
         }
     }
 
-    if (upserted === 0 && tileErrors.length > 0) {
+    if (upserted === 0 && skipped === 0 && tileErrors.length > 0) {
         const err = new Error(
             `All tiles failed for ${region.name}: ${tileErrors[0]}` +
                 (tileErrors.length > 1 ? ` (+${tileErrors.length - 1} more)` : ""),
@@ -1139,7 +1221,7 @@ async function seedRegionTilesFanout({
         throw err;
     }
 
-    return { fetched, upserted, pages, tileErrors };
+    return { fetched, upserted, skipped, pages, tileErrors };
 }
 
 /**
@@ -1150,8 +1232,10 @@ async function seedRegionTilesFanout({
  *   maxSitelinks?: number | null,
  *   delayMs: number,
  *   dryRun: boolean,
+ *   updateExisting?: boolean,
  *   fetchImpl?: typeof fetch,
  * }} options
+ * @returns {Promise<{ fetched: number, upserted: number, skipped: number, pages: number, tileErrors: string[] }>}
  */
 async function seedRegionForceTiledRegions({
     region,
@@ -1160,6 +1244,7 @@ async function seedRegionForceTiledRegions({
     maxSitelinks = null,
     delayMs,
     dryRun,
+    updateExisting = false,
     fetchImpl = fetch,
 }) {
     const regions = regionSightseeingBoundList(region);
@@ -1168,6 +1253,7 @@ async function seedRegionForceTiledRegions({
     }
     let fetched = 0;
     let upserted = 0;
+    let skipped = 0;
     let pages = 0;
     /** @type {string[]} */
     const tileErrors = [];
@@ -1186,18 +1272,20 @@ async function seedRegionForceTiledRegions({
             maxSitelinks,
             delayMs,
             dryRun,
+            updateExisting,
             depth: 0,
             fetchImpl,
         });
         fetched += sub.fetched;
         upserted += sub.upserted;
+        skipped += sub.skipped || 0;
         pages += sub.pages;
         if (Array.isArray(sub.tileErrors) && sub.tileErrors.length) {
             tileErrors.push(...sub.tileErrors);
         }
     }
 
-    if (upserted === 0 && tileErrors.length > 0) {
+    if (upserted === 0 && skipped === 0 && tileErrors.length > 0) {
         const err = new Error(
             `All regions failed for ${region.name}: ${tileErrors[0]}` +
                 (tileErrors.length > 1 ? ` (+${tileErrors.length - 1} more)` : ""),
@@ -1206,7 +1294,7 @@ async function seedRegionForceTiledRegions({
         throw err;
     }
 
-    return { fetched, upserted, pages, tileErrors };
+    return { fetched, upserted, skipped, pages, tileErrors };
 }
 
 /**
@@ -1223,6 +1311,7 @@ export async function seedOneRegion(region, opts, fetchImpl = fetch) {
         maxSitelinks: opts.maxSitelinks,
         delayMs: opts.delayMs,
         dryRun: opts.dryRun,
+        updateExisting: opts.updateExisting,
         fetchImpl,
     };
     return forceTiles
@@ -1280,6 +1369,7 @@ export async function runSightseeingSeed({
         `[seed] regions=${regions.length} dryRun=${opts.dryRun} pageSize=${opts.pageSize}` +
             ` sitelinks=[${opts.minSitelinks}, ${opts.maxSitelinks ?? "∞"})` +
             ` forceTiles=${opts.forceTiles} regionRetries=${opts.regionRetries}` +
+            ` updateExisting=${opts.updateExisting}` +
             ` filters=SPARQL_POI_CATEGORIES+INSTANCE_OF (same as Europe)`,
     );
 
@@ -1307,6 +1397,7 @@ export async function runSightseeingSeed({
         for (const row of checkpoint.regions) {
             report.totals.fetched += Number(row.fetched) || 0;
             report.totals.upserted += Number(row.upserted) || 0;
+            report.totals.skipped += Number(row.skipped) || 0;
         }
     }
 
@@ -1315,7 +1406,8 @@ export async function runSightseeingSeed({
             reportDir,
             progressLogFile,
             `[seed] heartbeat still running — upserted=${report.totals.upserted} ` +
-                `failed=${report.totals.failed} completedQids=${completed.size}`,
+                `skipped=${report.totals.skipped} failed=${report.totals.failed} ` +
+                `completedQids=${completed.size}`,
         );
     }, HEARTBEAT_MS);
     heartbeat.unref?.();
@@ -1373,22 +1465,27 @@ export async function runSightseeingSeed({
                 );
             } else {
                 const tileErrors = Array.isArray(result.tileErrors) ? result.tileErrors : [];
-                const ok = result.upserted > 0 || tileErrors.length === 0;
+                const skipped = result.skipped || 0;
+                const ok = result.upserted > 0 || skipped > 0 || tileErrors.length === 0;
                 const row = {
                     name: region.name,
                     wikidataId: region.wikidataId,
                     kind: region.kind,
                     fetched: result.fetched,
                     upserted: result.upserted,
+                    skipped,
                     pages: result.pages,
                     forceTiles,
                     tileErrors: tileErrors.length ? tileErrors : undefined,
                     ok,
-                    ...(ok ? {} : { error: tileErrors[0] || "no places upserted" }),
+                    ...(ok
+                        ? {}
+                        : { error: tileErrors[0] || "no places inserted or skipped" }),
                 };
                 report.regions.push(row);
                 report.totals.fetched += result.fetched;
                 report.totals.upserted += result.upserted;
+                report.totals.skipped += skipped;
                 if (!ok) {
                     report.totals.failed += 1;
                 } else {
@@ -1402,7 +1499,7 @@ export async function runSightseeingSeed({
                     reportDir,
                     progressLogFile,
                     `[seed] done ${region.name}: fetched=${result.fetched} upserted=${result.upserted} ` +
-                        `pages=${result.pages} forceTiles=${forceTiles}` +
+                        `skipped=${skipped} pages=${result.pages} forceTiles=${forceTiles}` +
                         (tileErrors.length ? ` tileErrors=${tileErrors.length}` : ""),
                 );
             }

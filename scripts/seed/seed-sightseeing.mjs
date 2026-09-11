@@ -27,6 +27,7 @@
  *   --dry-run           Fetch Wikidata only; no DB writes
  *   --radius-km N       City bbox radius when Wikidata has no extremes (default: 20)
  *   --resume            Skip regions already marked ok in the checkpoint file
+ *   --update-existing   Overwrite rows that already exist (default: skip them)
  *   --delay-ms N        Pause between SPARQL requests (default: 1500)
  *   --page-size N       SPARQL page size (default: 2000)
  *   --min-sitelinks N   Keep POIs with sitelinks >= N (default: 1)

@@ -39,6 +39,7 @@ npm run script:sightseeing:seed -- --country Q30 --min-sitelinks=15
 | `--dry-run` | Fetch Wikidata only; no DB writes |
 | `--migrate-db` | Applies `db/001_sightseeing.sql` (create table/indexes if missing) before seeding. Default: off |
 | `--resume` | Skip QIDs already ok in the checkpoint |
+| `--update-existing` | Overwrite rows that already exist (`wikidata_id`). Default: skip them |
 | `--radius-km N` | City bbox when Wikidata has no extremes (default 20) |
 | `--min-sitelinks N` | Keep POIs with sitelinks ≥ N (default 1) |
 | `--max-sitelinks N` | Exclusive upper bound (for range passes) |
@@ -88,7 +89,7 @@ npm run script:sightseeing:seed-oceania:dry-run
 | South America | `seed-south-america-sightseeing.mjs` | `seed-south-america-checkpoint.json` |
 | Oceania | `seed-oceania-sightseeing.mjs` | `seed-oceania-checkpoint.json` |
 
-Upserts merge by `wikidata_id`, so continents can be seeded in any order.
+By default the scripts **skip** a Wikidata object if that `wikidata_id` is already in `sightseeing` (inserts only new rows). Pass `--update-existing` to overwrite. Restarting a long country run (for example the United States) will not rewrite tiles that already landed. SPARQL still runs so newly discovered QIDs can be inserted.
 
 Russia / Turkey / Georgia / Armenia / Azerbaijan live on the **Europe** list
 (with European-portion bounds). They are not repeated on Asia.
@@ -98,6 +99,7 @@ Russia / Turkey / Georgia / Armenia / Azerbaijan live on the **Europe** list
 ## 3. Explicit QIDs
 
 Calls the deployed `ensureSightseeingByQid` Cloud Function (no local Postgres).
+QIDs that already exist in the table are skipped (`status: exists`) before Wikidata is fetched.
 
 ```bash
 # credentials: scripts/guidex-afc30-*.json
@@ -115,4 +117,5 @@ Optional `--direct` talks to Postgres in-process instead of the HTTP API.
 
 Geographic runs append `scripts/seed/reports/seed-*-progress.log` and write a
 timestamped JSON report in the same folder. Re-run with `--resume` to continue
-after a failure or interrupt.
+after a failure or interrupt. Heartbeats and `done` lines include `skipped`
+(QIDs already in the table).
