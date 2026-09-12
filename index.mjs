@@ -19,3 +19,4 @@ export { resolvePlaceCity } from "./handlers/resolve-place-city.mjs";
 export { onCheckinLikeCreated } from "./handlers/on-checkin-like-created.mjs";
 export { onCheckinCreated } from "./handlers/on-checkin-created.mjs";
 export { onFollowerAdded } from "./handlers/on-follower-added.mjs";
+export { onUserReportCreated } from "./handlers/on-user-report-created.mjs";

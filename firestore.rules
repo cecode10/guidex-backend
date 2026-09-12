@@ -240,8 +240,16 @@ service cloud.firestore {
       allow create: if isSignedInAndVerified()
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.reportedUserId is string
-        && request.resource.data.reportedUserId != request.auth.uid;
+        && request.resource.data.reportedUserId != request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 2000;
       allow read, update, delete: if false;
+    }
+
+    // Trigger Email (firestore-send-email) queue. Written by Admin SDK only.
+    match /mail/{mailId} {
+      allow read, write: if false;
     }
   }
 }

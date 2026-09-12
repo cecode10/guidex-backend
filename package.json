@@ -24,6 +24,7 @@
         "deploy:onCheckinLikeCreated": "firebase deploy --only functions:onCheckinLikeCreated",
         "deploy:onCheckinCreated": "firebase deploy --only functions:onCheckinCreated",
         "deploy:onFollowerAdded": "firebase deploy --only functions:onFollowerAdded",
+        "deploy:onUserReportCreated": "firebase deploy --only functions:onUserReportCreated",
         "deploy:ensureSightseeingByQid": "firebase deploy --only functions:ensureSightseeingByQid",
         "deploy:firestore": "firebase deploy --only firestore",
         "deploy:storage": "firebase deploy --only storage",
