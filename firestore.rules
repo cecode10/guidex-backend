@@ -42,20 +42,50 @@ service cloud.firestore {
       return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
     }
 
+    function blockedUserIds(data) {
+      return (data != null
+          && data.keys().hasAny(['blockedUserIds'])
+          && data.blockedUserIds is list)
+        ? data.blockedUserIds
+        : [];
+    }
+
+    // Blocker profile treats the blocked user as Privacy → No one.
+    function authorBlockedViewer(authorData) {
+      return request.auth.uid in blockedUserIds(authorData);
+    }
+
+    function viewerBlockedAuthor(authorId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && authorId in blockedUserIds(
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        );
+    }
+
+    function blockRelationship(authorId, authorData) {
+      return authorBlockedViewer(authorData) || viewerBlockedAuthor(authorId);
+    }
+
     // [followerId] adds users/{followerId}/friends/{targetId}; target must allow it.
     function followCreateAllowed(targetUserData, followerId, targetId) {
       let policy = effectiveWhoCanFollowMe(targetUserData);
-      return policy == 'everyone'
-        || (policy == 'people_i_follow'
-            && exists(/databases/$(database)/documents/users/$(targetId)/friends/$(followerId)));
+      return !blockRelationship(targetId, targetUserData)
+        && (policy == 'everyone'
+          || (policy == 'people_i_follow'
+              && exists(/databases/$(database)/documents/users/$(targetId)/friends/$(followerId))));
     }
 
     // Viewer may read author check-ins when owner, everyone, or author follows viewer.
     function checkInReadAllowed(authorId, authorData) {
       return request.auth.uid == authorId
-        || effectiveWhoCanSeeMyCheckIns(authorData) == 'everyone'
-        || (effectiveWhoCanSeeMyCheckIns(authorData) == 'people_i_follow'
-            && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)));
+        || (
+          !blockRelationship(authorId, authorData)
+          && (
+            effectiveWhoCanSeeMyCheckIns(authorData) == 'everyone'
+            || (effectiveWhoCanSeeMyCheckIns(authorData) == 'people_i_follow'
+                && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)))
+          )
+        );
     }
 
     // Users Collection
@@ -202,6 +232,15 @@ service cloud.firestore {
         && request.resource.data.customerId == request.auth.uid;
 
       // No one can read, update, or delete feedback from the client app
+      allow read, update, delete: if false;
+    }
+
+    // User reports (block / report flow). Support-only; clients may create.
+    match /user-reports/{reportId} {
+      allow create: if isSignedInAndVerified()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reportedUserId is string
+        && request.resource.data.reportedUserId != request.auth.uid;
       allow read, update, delete: if false;
     }
   }

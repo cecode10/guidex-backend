@@ -10,6 +10,7 @@ import {
     sendPushToUser,
     userFollows,
 } from "../utils/notification-utils.mjs";
+import { isBlockedEitherWay } from "../utils/blocked-users-utils.mjs";
 
 /**
  * Notifies a user when someone starts following them.
@@ -28,6 +29,11 @@ export const onFollowerAdded = onDocumentCreated(
 
         const targetDoc = await db.collection("users").doc(targetId).get();
         const targetData = targetDoc.data();
+        const followerDoc = await db.collection("users").doc(followerId).get();
+        const followerData = followerDoc.data();
+        if (isBlockedEitherWay(targetData, followerId, followerData, targetId)) {
+            return null;
+        }
         const setting = extractNotificationSetting(
             targetData,
             NEW_FOLLOWERS_SETTING,
@@ -42,8 +48,7 @@ export const onFollowerAdded = onDocumentCreated(
             return null;
         }
 
-        const followerDoc = await db.collection("users").doc(followerId).get();
-        const followerName = displayNameFromUserDoc(followerDoc.data(), followerId);
+        const followerName = displayNameFromUserDoc(followerData, followerId);
 
         const sent = await sendPushToUser(db, messaging, targetId, {
             title: "New follower",

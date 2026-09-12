@@ -11,6 +11,7 @@ import {
     sendPushToUser,
     userFollows,
 } from "../utils/notification-utils.mjs";
+import { isBlockedEitherWay } from "../utils/blocked-users-utils.mjs";
 
 const EVERYONE = "everyone";
 const PEOPLE_I_FOLLOW = "people_i_follow";
@@ -84,8 +85,12 @@ export const onCheckinCreated = onDocumentCreated(
             }
 
             const followerDoc = await db.collection("users").doc(followerId).get();
+            const followerData = followerDoc.data();
+            if (isBlockedEitherWay(authorData, followerId, followerData, authorId)) {
+                continue;
+            }
             const setting = extractNotificationSetting(
-                followerDoc.data(),
+                followerData,
                 NEW_CHECKINS_SETTING,
                 ALWAYS,
             );

@@ -8,6 +8,7 @@ export { imageRecognition } from "./handlers/image-recognition.mjs";
 export { textToSpeechFn as textToSpeech } from "./handlers/text-to-speech.mjs";
 export { deleteAccount } from "./handlers/delete-account.mjs";
 export { onUserProfileUpdate } from "./handlers/on-user-profile-update.mjs";
+export { onBlockedUsersUpdated } from "./handlers/on-blocked-users-updated.mjs";
 export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
 export { resolveNearMePopular } from "./handlers/resolve-near-me-popular.mjs";
 export { resolveGlobalSearchPopular } from "./handlers/resolve-global-search-popular.mjs";

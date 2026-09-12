@@ -14,6 +14,7 @@
         "deploy:textToSpeech": "firebase deploy --only functions:textToSpeech",
         "deploy:deleteAccount": "firebase deploy --only functions:deleteAccount",
         "deploy:onUserProfileUpdate": "firebase deploy --only functions:onUserProfileUpdate",
+        "deploy:onBlockedUsersUpdated": "firebase deploy --only functions:onBlockedUsersUpdated",
         "deploy:resolvePlaceImage": "firebase deploy --only functions:resolvePlaceImage",
         "deploy:resolveNearMePopular": "firebase deploy --only functions:resolveNearMePopular",
         "deploy:resolveGlobalSearchPopular": "firebase deploy --only functions:resolveGlobalSearchPopular",

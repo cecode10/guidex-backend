@@ -10,6 +10,7 @@ import {
     sendPushToUser,
     userFollows,
 } from "../utils/notification-utils.mjs";
+import { isBlockedEitherWay } from "../utils/blocked-users-utils.mjs";
 
 /**
  * Notifies a check-in author when someone likes their check-in.
@@ -28,6 +29,11 @@ export const onCheckinLikeCreated = onDocumentCreated(
 
         const authorDoc = await db.collection("users").doc(authorId).get();
         const authorData = authorDoc.data();
+        const likerDoc = await db.collection("users").doc(likerId).get();
+        const likerData = likerDoc.data();
+        if (isBlockedEitherWay(authorData, likerId, likerData, authorId)) {
+            return null;
+        }
         const setting = extractNotificationSetting(
             authorData,
             CHECKIN_LIKES_SETTING,
@@ -42,8 +48,7 @@ export const onCheckinLikeCreated = onDocumentCreated(
             return null;
         }
 
-        const likerDoc = await db.collection("users").doc(likerId).get();
-        const likerName = displayNameFromUserDoc(likerDoc.data(), likerId);
+        const likerName = displayNameFromUserDoc(likerData, likerId);
 
         const checkInDoc = await db
             .collection("users")
