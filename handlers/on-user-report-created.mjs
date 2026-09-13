@@ -1,21 +1,22 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
+import { sendMail } from "../services/mail-service.mjs";
+import { mailFunctionSecrets } from "../utils/mail-params.mjs";
 import {
-    MAIL_COLLECTION,
-    buildReportReceivedMailDoc,
+    buildReportReceivedMail,
     emailFromUserDoc,
-    mailDocIdForReport,
     reportFieldsFromDoc,
 } from "../utils/user-report-email-utils.mjs";
 
 /**
- * Queues a confirmation email via firestore-send-email when a user report
- * is filed. The reporter is the visible recipient; support is BCC'd.
+ * Sends a confirmation email when a user report is filed.
+ * The reporter is the visible recipient; support is BCC'd via sendMail.
  */
 export const onUserReportCreated = onDocumentCreated(
     {
         document: "user-reports/{reportId}",
         region: "europe-west3",
+        secrets: mailFunctionSecrets,
     },
     async (event) => {
         const { reportId } = event.params;
@@ -31,19 +32,27 @@ export const onUserReportCreated = onDocumentCreated(
             reporterEmail = emailFromUserDoc(reporterDoc.data());
         }
 
-        const mailDoc = buildReportReceivedMailDoc({
+        const result = await sendMail(buildReportReceivedMail({
             ...fields,
             reporterEmail,
             reportId,
-        });
-        await db.collection(MAIL_COLLECTION).doc(mailDocIdForReport(reportId)).set(mailDoc);
+        }));
+        if (!result.ok) {
+            console.error(
+                "onUserReportCreated: send failed reportId=%s error=%s",
+                reportId,
+                result.error,
+            );
+            return null;
+        }
 
         console.log(
-            "onUserReportCreated: reportId=%s reporterId=%s reportedUserId=%s mailedTo=%s",
+            "onUserReportCreated: reportId=%s reporterId=%s reportedUserId=%s mailedTo=%s messageId=%s",
             reportId,
             fields.reporterId || "(none)",
             fields.reportedUserId || "(none)",
             reporterEmail || "(support-only)",
+            result.messageId || "(none)",
         );
         return null;
     },

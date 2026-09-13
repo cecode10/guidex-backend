@@ -53,11 +53,11 @@ export const NORTH_AMERICA_COUNTRIES = [
         iso2: "MX",
         bounds: { minLon: -118.5, maxLon: -86.5, minLat: 14.5, maxLat: 32.8 },
     },
-    // {
-    //     name: "United States",
-    //     wikidataId: "Q30",
-    //     iso2: "US",
-    //     aliases: ["USA", "America"],
-    //     bounds: { minLon: -125, maxLon: -66.5, minLat: 24.5, maxLat: 49.5 },
-    // },
+    {
+        name: "United States",
+        wikidataId: "Q30",
+        iso2: "US",
+        aliases: ["USA", "America"],
+        bounds: { minLon: -125, maxLon: -66.5, minLat: 24.5, maxLat: 49.5 },
+    },
 ];

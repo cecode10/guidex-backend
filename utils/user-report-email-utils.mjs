@@ -1,23 +1,7 @@
-export const SUPPORT_REPORT_BCC = "support@kudosaitech.com";
-export const MAIL_COLLECTION = "mail";
+import { MAIL_SUPPORT_BCC, emailFromUserDoc, normalizeEmail } from "./email-utils.mjs";
+import { renderMailTemplate } from "./mail-template-utils.mjs";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/**
- * @param {unknown} value
- * @returns {string | null}
- */
-export const normalizeEmail = (value) => {
-    if (typeof value !== "string") return null;
-    const email = value.trim().toLowerCase();
-    return EMAIL_RE.test(email) ? email : null;
-};
-
-/**
- * @param {Record<string, unknown> | undefined | null} userData
- * @returns {string | null}
- */
-export const emailFromUserDoc = (userData) => normalizeEmail(userData?.email);
+export { MAIL_SUPPORT_BCC as SUPPORT_REPORT_BCC, emailFromUserDoc, normalizeEmail };
 
 /**
  * @param {Record<string, unknown> | undefined | null} reportData
@@ -52,7 +36,7 @@ export const reportFieldsFromDoc = (reportData) => {
 };
 
 /**
- * Firestore `mail` document for the Trigger Email extension.
+ * Content for {@link import("../services/mail-service.mjs").sendMail}.
  *
  * @param {{
  *   reporterEmail: string | null,
@@ -62,9 +46,8 @@ export const reportFieldsFromDoc = (reportData) => {
  *   reason: string,
  *   reportId: string,
  * }} input
- * @returns {Record<string, unknown>}
  */
-export const buildReportReceivedMailDoc = ({
+export const buildReportReceivedMail = ({
     reporterEmail,
     reporterId,
     reportedUserId,
@@ -73,69 +56,27 @@ export const buildReportReceivedMailDoc = ({
     reportId,
 }) => {
     const accused = reportedUsername || reportedUserId || "another user";
-    const details = [
-        `Report ID: ${reportId || "(unknown)"}`,
-        `Reporting user: ${reporterId || "(unknown)"}`,
-        `Reported user: ${accused}${reportedUserId ? ` (${reportedUserId})` : ""}`,
-        "",
-        "Reason:",
-        reason || "(none provided)",
-    ].join("\n");
-
-    const text = [
-        "Thanks for letting us know.",
-        "",
-        "We've received your report and our team will review it. You don't need to do anything else for now.",
-        "",
-        details,
-        "",
-        "This is an automated message from Ramblex.",
-    ].join("\n");
-
-    const html = [
-        "<p>Thanks for letting us know.</p>",
-        "<p>We've received your report and our team will review it. You don't need to do anything else for now.</p>",
-        `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(details)}</pre>`,
-        "<p>This is an automated message from Ramblex.</p>",
-    ].join("");
+    const { html, text } = renderMailTemplate("report-received", {
+        reportId: reportId || "(unknown)",
+        reporterId: reporterId || "(unknown)",
+        reportedUser: reportedUserId ? `${accused} (${reportedUserId})` : accused,
+        reason: reason || "(none provided)",
+    });
 
     if (reporterEmail) {
         return {
-            to: [reporterEmail],
-            bcc: [SUPPORT_REPORT_BCC],
-            replyTo: SUPPORT_REPORT_BCC,
-            message: {
-                subject: "We received your report",
-                text,
-                html,
-            },
+            to: reporterEmail,
+            bccSupport: true,
+            subject: "We received your report",
+            text,
+            html,
         };
     }
 
     return {
-        to: [SUPPORT_REPORT_BCC],
-        replyTo: SUPPORT_REPORT_BCC,
-        message: {
-            subject: "User report received (reporter has no email)",
-            text,
-            html,
-        },
+        to: MAIL_SUPPORT_BCC,
+        subject: "User report received (reporter has no email)",
+        text,
+        html,
     };
 };
-
-/**
- * @param {string} reportId
- * @returns {string}
- */
-export const mailDocIdForReport = (reportId) => `user-report-${reportId}`;
-
-/**
- * @param {string} value
- * @returns {string}
- */
-const escapeHtml = (value) =>
-    value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");

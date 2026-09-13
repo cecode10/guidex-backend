@@ -247,7 +247,7 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
-    // Trigger Email (firestore-send-email) queue. Written by Admin SDK only.
+    // Leftover mail queue (unused). Clients must not read or write.
     match /mail/{mailId} {
       allow read, write: if false;
     }

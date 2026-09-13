@@ -3,6 +3,8 @@
  */
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import { sendMail } from "./mail-service.mjs";
+import { buildAccountDeletedMail } from "../utils/account-deletion-email-utils.mjs";
 
 const BATCH_SIZE = 500;
 
@@ -155,6 +157,20 @@ export const deleteUserAccount = async (uid, { email } = {}) => {
         const { followingRemoved, followersRemoved, fcmTokensRemoved } = await removeUserFromFollowGraph(uid);
         await getAuth().deleteUser(uid);
         await tombstoneUserProfile(uid, deletedEmail);
+
+        if (deletedEmail) {
+            const mail = await sendMail(buildAccountDeletedMail({
+                email: deletedEmail,
+                uid,
+            }));
+            if (!mail.ok) {
+                console.error(
+                    "account-deletion: confirmation email failed uid=%s error=%s",
+                    uid,
+                    mail.error,
+                );
+            }
+        }
 
         console.log(
             "account-deletion: uid=%s email=%s followingRemoved=%d followersRemoved=%d fcmTokensRemoved=%d",
