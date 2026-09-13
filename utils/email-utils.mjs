@@ -1,5 +1,5 @@
 /** Hidden copy for transactional mail (reports, account deletion, …). */
-export const MAIL_SUPPORT_BCC = "t.matov@proton.me";
+export const MAIL_SUPPORT_BCC = "info@kudosaitech.com";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

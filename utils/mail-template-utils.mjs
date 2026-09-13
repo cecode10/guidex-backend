@@ -76,6 +76,10 @@ export const htmlToPlainText = (html) =>
         .replace(/<script[\s\S]*?<\/script>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<\/(p|div|h[1-6]|li|tr|table)>/gi, "\n")
+        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, label) => {
+            const text = label.replace(/<[^>]+>/g, "").trim();
+            return text && text !== href ? `${text} (${href})` : href;
+        })
         .replace(/<[^>]+>/g, "")
         .replace(/&nbsp;/gi, " ")
         .replace(/&amp;/g, "&")

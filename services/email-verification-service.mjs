@@ -4,7 +4,8 @@ import { buildEmailVerificationMail } from "../utils/email-verification-email-ut
 import { normalizeEmail } from "../utils/email-utils.mjs";
 
 /** After the Firebase action handler verifies the address, the browser lands here. */
-export const EMAIL_VERIFICATION_CONTINUE_URL = "https://guidex-afc30.firebaseapp.com";
+export const EMAIL_VERIFICATION_CONTINUE_URL =
+    "https://guidex-afc30.web.app/email-confirmed";
 
 /**
  * @param {unknown} error
