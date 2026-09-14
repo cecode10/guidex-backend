@@ -61,6 +61,9 @@ export const buildReportReceivedMail = ({
         reporterId: reporterId || "(unknown)",
         reportedUser: reportedUserId ? `${accused} (${reportedUserId})` : accused,
         reason: reason || "(none provided)",
+        title: "We received your report",
+        footerNotice:
+            "This is a service email sent because a user report was submitted from a Ramblex account associated with this address. It is not marketing communication.",
     });
 
     if (reporterEmail) {

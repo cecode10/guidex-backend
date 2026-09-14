@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { escapeHtml } from "./email-utils.mjs";
 
 const TEMPLATE_NAME_RE = /^[a-z][a-z0-9-]*$/;
-const PLACEHOLDER_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
+const UNESCAPED_PLACEHOLDER_RE = /\{\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}\}/g;
+const ESCAPED_PLACEHOLDER_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
+
+export const MAIL_LAYOUT_NAME = "base";
+export const MAIL_LOGO_CID = "ramblex-logo";
 
 export const MAIL_TEMPLATES_DIR = join(
     dirname(fileURLToPath(import.meta.url)),
@@ -12,6 +16,8 @@ export const MAIL_TEMPLATES_DIR = join(
     "templates",
     "mail",
 );
+
+export const MAIL_LOGO_PATH = join(MAIL_TEMPLATES_DIR, "assets", "ramblex-logo.png");
 
 /** @type {Map<string, string>} */
 const templateCache = new Map();
@@ -54,17 +60,36 @@ export const loadMailTemplate = (name) => {
     return source;
 };
 
+export const loadMailLayout = () => loadMailTemplate(MAIL_LAYOUT_NAME);
+
+/**
+ * Inline logo for HTML mail clients. Nodemailer `cid` matches `src="cid:ramblex-logo"`.
+ *
+ * @returns {{ filename: string, path: string, cid: string, contentType: string }}
+ */
+export const ramblexLogoAttachment = () => ({
+    filename: "ramblex-logo.png",
+    path: MAIL_LOGO_PATH,
+    cid: MAIL_LOGO_CID,
+    contentType: "image/png",
+});
+
 /**
  * @param {string} source
  * @param {Record<string, string | number | null | undefined>} vars
  * @returns {string}
  */
-export const interpolateMailTemplate = (source, vars) =>
-    source.replace(PLACEHOLDER_RE, (_, key) => {
+export const interpolateMailTemplate = (source, vars) => {
+    const withRaw = source.replace(UNESCAPED_PLACEHOLDER_RE, (_, key) => {
+        const value = vars[key];
+        return value == null ? "" : String(value);
+    });
+    return withRaw.replace(ESCAPED_PLACEHOLDER_RE, (_, key) => {
         const value = vars[key];
         if (value == null) return "";
         return escapeHtml(String(value));
     });
+};
 
 /**
  * @param {string} html
@@ -72,6 +97,10 @@ export const interpolateMailTemplate = (source, vars) =>
  */
 export const htmlToPlainText = (html) =>
     html
+        .replace(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/gi, "")
+        .replace(/<!--\[if !mso\]><!-->/gi, "")
+        .replace(/<!--<!\[endif\]-->/gi, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
         .replace(/<style[\s\S]*?<\/style>/gi, "")
         .replace(/<script[\s\S]*?<\/script>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
@@ -92,13 +121,23 @@ export const htmlToPlainText = (html) =>
         .trim();
 
 /**
- * Renders one HTML mail template and a plain-text fallback.
+ * Renders one use-case body inside {@link MAIL_LAYOUT_NAME}.
  *
  * @param {string} name
  * @param {Record<string, string | number | null | undefined>} vars
  * @returns {{ html: string, text: string }}
  */
 export const renderMailTemplate = (name, vars) => {
-    const html = interpolateMailTemplate(loadMailTemplate(name), vars);
+    if (name === MAIL_LAYOUT_NAME) {
+        throw new Error("base is a layout, not a mail use case");
+    }
+
+    const body = interpolateMailTemplate(loadMailTemplate(name), vars);
+    const html = interpolateMailTemplate(loadMailLayout(), {
+        title: "Ramblex",
+        footerNotice: "",
+        ...vars,
+        body,
+    });
     return { html, text: htmlToPlainText(html) };
 };

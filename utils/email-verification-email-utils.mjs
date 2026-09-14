@@ -9,6 +9,9 @@ export const buildEmailVerificationMail = ({ email, verificationUrl }) => {
     const { html, text } = renderMailTemplate("email-verification", {
         email: email || "",
         verificationUrl: verificationUrl || "",
+        title: "Confirm your Ramblex email",
+        footerNotice:
+            "This is a service email sent because a Ramblex account registration was initiated with this email address. It is not marketing communication.",
     });
 
     return {

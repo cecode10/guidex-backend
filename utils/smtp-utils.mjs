@@ -30,9 +30,10 @@ export const smtpTransportOptions = ({ host, port, user, password }) => {
 };
 
 /**
- * Zoho requires MAIL FROM / From to be the authenticated mailbox (or an alias).
- * `SMTP_FROM=Ramblex` alone is rejected as relay; turn a display name into
- * `Ramblex <user@domain>`.
+ * Zoho requires MAIL FROM / From to be the authenticated mailbox or one of its
+ * aliases. `SMTP_FROM=Ramblex` alone is rejected as relay; turn a display name
+ * into `Ramblex <user@domain>`. A full address in SMTP_FROM (bare or angled)
+ * is kept so aliases like support@ can send while SMTP_USER stays the mailbox.
  *
  * @param {string} from
  * @param {string} user
@@ -41,17 +42,18 @@ export const smtpTransportOptions = ({ host, port, user, password }) => {
 export const formatSmtpFrom = (from, user) => {
     const mailbox = (user || "").trim();
     const raw = (from || "").trim();
+    if (!raw) return mailbox;
     if (!mailbox) return raw;
 
     const angled = raw.match(/^(.*)<([^>]+)>\s*$/);
     if (angled) {
         const label = angled[1].trim();
-        return label ? `${label} <${mailbox}>` : mailbox;
+        const address = angled[2].trim();
+        const email = address.includes("@") ? address : mailbox;
+        return label ? `${label} <${email}>` : email;
     }
-    if (raw && !raw.includes("@")) {
-        return `${raw} <${mailbox}>`;
-    }
-    return mailbox;
+    if (raw.includes("@")) return raw;
+    return `${raw} <${mailbox}>`;
 };
 
 /**

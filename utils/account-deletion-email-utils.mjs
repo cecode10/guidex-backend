@@ -8,6 +8,9 @@ import { renderMailTemplate } from "./mail-template-utils.mjs";
 export const buildAccountDeletedMail = ({ email, uid }) => {
     const { html, text } = renderMailTemplate("account-deleted", {
         accountId: uid || "(unknown)",
+        title: "Your Ramblex account was deleted",
+        footerNotice:
+            "This is a service email sent because a Ramblex account associated with this address was deleted. It is not marketing communication.",
     });
 
     return {

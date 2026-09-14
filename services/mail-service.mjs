@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { MAIL_SUPPORT_BCC, asAddressList } from "../utils/email-utils.mjs";
 import { readSmtpRuntimeConfig } from "../utils/mail-params.mjs";
 import { smtpConfigError, smtpTransportOptions } from "../utils/smtp-utils.mjs";
+import { MAIL_LOGO_CID, ramblexLogoAttachment } from "../utils/mail-template-utils.mjs";
 
 /** @type {import("nodemailer").Transporter | null} */
 let cachedTransporter = null;
@@ -84,6 +85,7 @@ export const mailMessageError = (message) => {
  *   from?: string,
  *   replyTo?: string,
  *   bccSupport?: boolean,
+ *   attachments?: import("nodemailer").SendMailOptions["attachments"],
  * }} input
  * @returns {Promise<{ ok: true, messageId: string } | { ok: false, error: string }>}
  */
@@ -102,6 +104,11 @@ export const sendMail = async (input) => {
         return { ok: false, error: messageError };
     }
 
+    const attachments = Array.isArray(input.attachments) ? [...input.attachments] : [];
+    if (message.html?.includes(`cid:${MAIL_LOGO_CID}`)) {
+        attachments.push(ramblexLogoAttachment());
+    }
+
     const info = await transporterFor(smtp).sendMail({
         from: message.from,
         to: message.to,
@@ -111,6 +118,7 @@ export const sendMail = async (input) => {
         subject: message.subject,
         text: message.text,
         html: message.html,
+        attachments: attachments.length > 0 ? attachments : undefined,
     });
     return { ok: true, messageId: info.messageId || "" };
 };

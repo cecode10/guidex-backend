@@ -1,39 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirm your Ramblex email</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#201E28;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:24px 12px;">
-        <tr>
-            <td align="center">
-                <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;">
-                    <tr>
-                        <td style="background-color:#201E28;padding:20px 28px;">
-                            <span style="font-size:20px;font-weight:700;color:#DD0E72;letter-spacing:0.3px;">Ramblex</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:28px;">
-                            <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#312E40;">Welcome to Ramblex.</p>
-                            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#312E40;">Confirm that <strong style="color:#201E28;">{{email}}</strong> is your address so you can start using your account. Open the link, then return to the app.</p>
-                            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-                                <tr>
-                                    <td style="background-color:#DD0E72;border-radius:8px;">
-                                        <a href="{{verificationUrl}}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Confirm email</a>
-                                    </td>
-                                </tr>
-                            </table>
-                            <p style="margin:0 0 20px;font-size:13px;line-height:1.5;color:#868080;">If the button does not work, <a href="{{verificationUrl}}" style="color:#DD0E72;text-decoration:underline;">open this confirmation link</a>.</p>
-                            <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#312E40;">If you did not create a Ramblex account, you can ignore this message.</p>
-                            <p style="margin:0;font-size:13px;line-height:1.5;color:#868080;">This is an automated message from Ramblex.</p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+<p style="margin: 0 0 22px; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px; color: #676773;">Welcome to Ramblex, and thank you for signing up! Your next adventure begins here.</p>
+
+<p style="margin: 0 0 30px; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px; color: #676773;">Please verify your email address to get started.</p>
+
+<!-- Centred verification button, with an Outlook desktop fallback. -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+        <td align="center">
+            <!--[if mso]>
+            <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{verificationUrl}}" style="height:54px;v-text-anchor:middle;width:180px;" arcsize="19%" stroke="f" fillcolor="#DD0E72">
+                <w:anchorlock/>
+                <center style="color:#FFFFFF;font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold;">Verify email</center>
+            </v:roundrect>
+            <![endif]-->
+
+            <!--[if !mso]><!-->
+            <a href="{{verificationUrl}}" target="_blank" style="display: inline-block; min-width: 180px; box-sizing: border-box; padding: 18px 24px; border-radius: 10px; background-color: #DD0E72; color: #FFFFFF; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 18px; font-weight: 700; text-align: center; text-decoration: none;">Verify email</a>
+            <!--<![endif]-->
+        </td>
+    </tr>
+</table>
+
+<p style="margin: 30px 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 22px; color: #7B7B85;">If you did not request this verification link, you can safely ignore this email.</p>
