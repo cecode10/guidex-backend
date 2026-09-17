@@ -99,7 +99,18 @@ service cloud.firestore {
       match /friends/{friendId} {
         // Anyone logged in can see who someone follows
         allow read: if isSignedIn();
-        allow delete: if isSignedInAndVerified() && request.auth.uid == userId;
+        // Owner can unfollow. A blocker can also remove the reverse edge
+        // `users/{blocked}/friends/{blocker}` after writing blockedUserIds.
+        allow delete: if isSignedInAndVerified() && (
+          request.auth.uid == userId
+          || (
+            request.auth.uid == friendId
+            && exists(/databases/$(database)/documents/users/$(friendId))
+            && userId in blockedUserIds(
+              get(/databases/$(database)/documents/users/$(friendId)).data
+            )
+          )
+        );
         allow update: if isSignedInAndVerified() && request.auth.uid == userId;
         allow create: if isSignedInAndVerified()
           && request.auth.uid == userId
@@ -243,7 +254,13 @@ service cloud.firestore {
         && request.resource.data.reportedUserId != request.auth.uid
         && request.resource.data.reason is string
         && request.resource.data.reason.size() > 0
-        && request.resource.data.reason.size() <= 2000;
+        && request.resource.data.reason.size() <= 2000
+        && (!('category' in request.resource.data)
+            || request.resource.data.category == ''
+            || request.resource.data.category == 'csam'
+            || request.resource.data.category == 'inappropriate'
+            || request.resource.data.category == 'harassment'
+            || request.resource.data.category == 'other');
       allow read, update, delete: if false;
     }
 

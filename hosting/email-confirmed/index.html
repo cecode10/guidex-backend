@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email confirmed · Ramblex</title>
+    <title>Confirming email · Ramblex</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#201E28;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:24px 12px;min-height:100vh;">
@@ -17,13 +17,84 @@
                     </tr>
                     <tr>
                         <td style="padding:28px;">
-                            <p style="margin:0 0 12px;font-size:20px;font-weight:700;line-height:1.4;color:#201E28;">Email confirmed</p>
-                            <p style="margin:0;font-size:15px;line-height:1.6;color:#312E40;">You can close this page and return to the Ramblex app. If the app still asks you to verify, tap <strong>I've verified</strong>.</p>
+                            <p id="title" style="margin:0 0 12px;font-size:20px;font-weight:700;line-height:1.4;color:#201E28;">Confirming your email</p>
+                            <p id="body" style="margin:0;font-size:15px;line-height:1.6;color:#312E40;">Please wait a moment.</p>
+                            <noscript>
+                                <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#312E40;">JavaScript is required to confirm your email. Enable it and open the link again, or request a new verification email in the app.</p>
+                            </noscript>
                         </td>
                     </tr>
                 </table>
             </td>
         </tr>
     </table>
+    <script>
+        (function () {
+            var titleEl = document.getElementById("title");
+            var bodyEl = document.getElementById("body");
+            var params = new URLSearchParams(window.location.search);
+            var mode = params.get("mode");
+            var oobCode = params.get("oobCode");
+            var apiKey = params.get("apiKey");
+
+            var confirmedCopy =
+                "You can close this page and return to the Ramblex app. If the app still asks you to verify, tap I've verified.";
+
+            function setStatus(title, body) {
+                document.title = title + " · Ramblex";
+                titleEl.textContent = title;
+                bodyEl.textContent = body;
+            }
+
+            function errorCopy(code) {
+                if (code === "EXPIRED_OOB_CODE") {
+                    return "This confirmation link has expired. Open the app and request a new verification email.";
+                }
+                if (code === "INVALID_OOB_CODE") {
+                    return "This link is no longer valid. If you already confirmed, return to the app. Otherwise request a new verification email.";
+                }
+                return "We could not confirm this email. Open the app and request a new verification email.";
+            }
+
+            if (mode && mode !== "verifyEmail") {
+                setStatus("Link not recognized", "Open the verification email from Ramblex and use the confirm link there.");
+                return;
+            }
+
+            if (!oobCode || !apiKey) {
+                setStatus("Email confirmed", confirmedCopy);
+                return;
+            }
+
+            fetch(
+                "https://identitytoolkit.googleapis.com/v1/accounts:update?key=" +
+                    encodeURIComponent(apiKey),
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ oobCode: oobCode }),
+                },
+            )
+                .then(function (res) {
+                    return res.json().then(function (data) {
+                        return { ok: res.ok, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (result.ok) {
+                        setStatus("Email confirmed", confirmedCopy);
+                        return;
+                    }
+                    var code = (result.data && result.data.error && result.data.error.message) || "";
+                    setStatus("Could not confirm email", errorCopy(code));
+                })
+                .catch(function () {
+                    setStatus(
+                        "Could not confirm email",
+                        "Check your connection and open the link again, or request a new verification email in the app.",
+                    );
+                });
+        })();
+    </script>
 </body>
 </html>

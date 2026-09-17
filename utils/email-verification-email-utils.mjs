@@ -10,6 +10,7 @@ export const buildEmailVerificationMail = ({ email, verificationUrl }) => {
         email: email || "",
         verificationUrl: verificationUrl || "",
         title: "Confirm your Ramblex email",
+        signoff: 'Have a great trip!<br><strong style="font-weight: 700; color: #3B3B43;">Your Kudosai team</strong>',
         footerNotice:
             "This is a service email sent because a Ramblex account registration was initiated with this email address. It is not marketing communication.",
     });

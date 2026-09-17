@@ -2,10 +2,13 @@ import { getAuth } from "firebase-admin/auth";
 import { sendMail } from "./mail-service.mjs";
 import { buildEmailVerificationMail } from "../utils/email-verification-email-utils.mjs";
 import { normalizeEmail } from "../utils/email-utils.mjs";
+import {
+    EMAIL_VERIFICATION_HANDLER_URL,
+    toCustomEmailVerificationUrl,
+} from "../utils/email-verification-url-utils.mjs";
 
-/** After the Firebase action handler verifies the address, the browser lands here. */
-export const EMAIL_VERIFICATION_CONTINUE_URL =
-    "https://guidex-afc30.web.app/email-confirmed";
+/** Required by Firebase when generating the action link; the mail uses our handler instead. */
+export const EMAIL_VERIFICATION_CONTINUE_URL = EMAIL_VERIFICATION_HANDLER_URL;
 
 /**
  * @param {unknown} error
@@ -57,9 +60,11 @@ export const sendSignupEmailVerification = async (
 
     let verificationUrl;
     try {
-        verificationUrl = await auth.generateEmailVerificationLink(userEmail, {
-            url: EMAIL_VERIFICATION_CONTINUE_URL,
-        });
+        verificationUrl = toCustomEmailVerificationUrl(
+            await auth.generateEmailVerificationLink(userEmail, {
+                url: EMAIL_VERIFICATION_CONTINUE_URL,
+            }),
+        );
     } catch (error) {
         rethrowAuthLinkError(error);
     }
