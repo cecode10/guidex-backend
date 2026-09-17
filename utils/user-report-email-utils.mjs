@@ -120,7 +120,7 @@ export const buildReportReceivedMail = ({
         categoryLabel,
         reason: formatReportReasonBody(category, reason),
         title: "We received your report",
-        signoff: 'Have a great trip!<br><strong style="font-weight: 700; color: #3B3B43;">Your Kudosai team</strong>',
+        signoff: 'Have a great trip!<br>Your Kudosai team',
         footerNotice:
             "This is a service email sent because a user report was submitted from a Ramblex account associated with this address. It is not marketing communication.",
     });
