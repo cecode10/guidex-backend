@@ -35,6 +35,7 @@
         "deploy:batch:notifications": "firebase deploy --only functions:onCheckinLikeCreated,functions:onCheckinCreated,functions:onFollowerAdded",
         "deploy:batch:sightseeing": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveNearbyPlaces,functions:generateWalkingTrip,functions:ensureSightseeingByQid",
         "deploy:llmUsingFunctions": "firebase deploy --only functions:textPrompt,functions:imageAnnotation,functions:imageRecognition,functions:generateWalkingTrip",
+        "deploy:mail-functions": "firebase deploy --only functions:sendEmailVerification,functions:deleteAccount,functions:onUserReportCreated",
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",
         "test": "vitest run",
