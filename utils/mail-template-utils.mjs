@@ -136,8 +136,7 @@ export const renderMailTemplate = (name, vars) => {
     const html = interpolateMailTemplate(loadMailLayout(), {
         title: "Ramblex",
         footerNotice: "",
-        signoff:
-            'Have a great trip!<br>Your Kudosai team',
+        signoff: 'Your Kudosai team',
         ...vars,
         body,
     });
