@@ -93,9 +93,10 @@ const resolveDeletedUserEmail = async (uid, emailOverride) => {
  *
  * @param {string} uid
  * @param {string | null} deletedEmail
+ * @param {object | null} [termsAcceptance] Retained contract evidence, including IP.
  * @returns {Promise<void>}
  */
-const recordAccountDeletionAudit = async (uid, deletedEmail) => {
+const recordAccountDeletionAudit = async (uid, deletedEmail, termsAcceptance = null) => {
     await getFirestore()
         .collection("accountDeletions")
         .doc(uid)
@@ -103,6 +104,7 @@ const recordAccountDeletionAudit = async (uid, deletedEmail) => {
             uid,
             deletedEmail: deletedEmail ?? null,
             accountDeletedAt: FieldValue.serverTimestamp(),
+            termsAcceptance: termsAcceptance ?? null,
         });
 };
 
@@ -114,9 +116,17 @@ const recordAccountDeletionAudit = async (uid, deletedEmail) => {
  * @returns {Promise<void>}
  */
 export const tombstoneUserProfile = async (uid, deletedEmail = null) => {
-    await recordAccountDeletionAudit(uid, deletedEmail);
-
     const userRef = getFirestore().collection("users").doc(uid);
+    const legalRef = userRef.collection("legal").doc("termsAcceptance");
+    const [userSnap, legalSnap] = await Promise.all([userRef.get(), legalRef.get()]);
+    const legalRecord = legalSnap.exists ? legalSnap.data() : null;
+    const publicRecord = userSnap.exists ? userSnap.data()?.termsAcceptance : null;
+
+    await recordAccountDeletionAudit(uid, deletedEmail, legalRecord || publicRecord || null);
+    if (legalSnap.exists) {
+        await legalRef.delete();
+    }
+
     await userRef.set(
         {
             accountDeleted: true,
@@ -130,6 +140,7 @@ export const tombstoneUserProfile = async (uid, deletedEmail = null) => {
             photoUrl: FieldValue.delete(),
             photoURL: FieldValue.delete(),
             about: FieldValue.delete(),
+            termsAcceptance: FieldValue.delete(),
         },
         { merge: true },
     );

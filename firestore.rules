@@ -88,12 +88,28 @@ service cloud.firestore {
         );
     }
 
+    // Terms acceptance is written only by the `acceptTerms` Cloud Function
+    // (Admin SDK). Clients must not create, change, or delete this field.
+    function termsAcceptanceUnchanged() {
+      return request.resource.data.termsAcceptance == resource.data.termsAcceptance;
+    }
+
     // Users Collection
     match /users/{userId} {
       // Anyone logged in can read user profiles (needed for search and feed)
       allow read: if isSignedIn();
-      // Users can only update their own profile/settings
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && !request.resource.data.keys().hasAny(['termsAcceptance']);
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && termsAcceptanceUnchanged();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+      // IP / user-agent audit for Terms acceptance. Admin SDK only.
+      match /legal/{docId} {
+        allow read, write: if false;
+      }
 
       // Friends Subcollection
       match /friends/{friendId} {
