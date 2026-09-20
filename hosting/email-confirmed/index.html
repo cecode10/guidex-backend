@@ -3,98 +3,122 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Confirming email · Ramblex</title>
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        body { margin: 0; padding: 0; width: 100% !important; min-height: 100vh; }
+        @media only screen and (max-width: 620px) {
+            .email-container { width: 100% !important; max-width: 100% !important; }
+            .card-padding { padding: 32px 24px 28px !important; }
+        }
+    </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#201E28;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:24px 12px;min-height:100vh;">
-        <tr>
-            <td align="center" valign="middle">
-                <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;">
-                    <tr>
-                        <td style="background-color:#201E28;padding:20px 28px;">
-                            <span style="font-size:20px;font-weight:700;color:#DD0E72;letter-spacing:0.3px;">Ramblex</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:28px;">
-                            <p id="title" style="margin:0 0 12px;font-size:20px;font-weight:700;line-height:1.4;color:#201E28;">Confirming your email</p>
-                            <p id="body" style="margin:0;font-size:15px;line-height:1.6;color:#312E40;">Please wait a moment.</p>
-                            <noscript>
-                                <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#312E40;">JavaScript is required to confirm your email. Enable it and open the link again, or request a new verification email in the app.</p>
-                            </noscript>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+<body style="margin:0; padding:0; background-color:#F4F4F7;">
+    <center style="width:100%; background-color:#F4F4F7; min-height:100vh;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F4F4F7; min-height:100vh;">
+            <tr>
+                <td align="center" style="padding: 36px 16px 48px;">
+                    <table role="presentation" class="email-container" width="600" cellspacing="0" cellpadding="0" border="0" style="width: 600px; max-width: 600px;">
+                        <tr>
+                            <td align="center" style="padding: 0 0 28px;">
+                                <a href="https://kudosaitech.com/" target="_blank" style="display: inline-block; text-decoration: none;">
+                                    <img src="/assets/ramblex-logo.png" alt="Ramblex" width="280" style="display: block; width: 280px; max-width: 80%; height: auto; border: 0;">
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table role="presentation" class="email-container" width="600" cellspacing="0" cellpadding="0" border="0" style="width: 600px; max-width: 600px; background-color: #FFFFFF; border: 1px solid #ECECEF; border-radius: 8px; box-shadow: 0 3px 12px rgba(24, 24, 31, 0.08);">
+                        <tr>
+                            <td class="card-padding" style="padding: 58px 66px 54px;">
+                                <p id="title" style="margin: 0 0 22px; font-family: Arial, Helvetica, sans-serif; font-size: 20px; line-height: 1.4; font-weight: 700; color: #201E28;">Confirming your email</p>
+
+<p id="body" style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px; color: #676773;">Please wait a moment.</p>
+
+<noscript>
+    <p style="margin: 16px 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 17px; line-height: 27px; color: #676773;">JavaScript is required to confirm your email. Enable it and open the link again, or request a new verification email in the app.</p>
+</noscript>
+
+
+                                
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </center>
     <script>
-        (function () {
-            var titleEl = document.getElementById("title");
-            var bodyEl = document.getElementById("body");
-            var params = new URLSearchParams(window.location.search);
-            var mode = params.get("mode");
-            var oobCode = params.get("oobCode");
-            var apiKey = params.get("apiKey");
+    (function () {
+        var titleEl = document.getElementById("title");
+        var bodyEl = document.getElementById("body");
+        var params = new URLSearchParams(window.location.search);
+        var mode = params.get("mode");
+        var oobCode = params.get("oobCode");
+        var apiKey = params.get("apiKey");
 
-            var confirmedCopy =
-                "You can close this page and return to the Ramblex app. If the app still asks you to verify, tap I've verified.";
+        var confirmedCopy =
+            "You can close this page and return to the Ramblex app. If the app still asks you to verify, tap I've verified.";
 
-            function setStatus(title, body) {
-                document.title = title + " · Ramblex";
-                titleEl.textContent = title;
-                bodyEl.textContent = body;
+        function setStatus(title, body) {
+            document.title = title + " · Ramblex";
+            titleEl.textContent = title;
+            bodyEl.textContent = body;
+        }
+
+        function errorCopy(code) {
+            if (code === "EXPIRED_OOB_CODE") {
+                return "This confirmation link has expired. Open the app and request a new verification email.";
             }
-
-            function errorCopy(code) {
-                if (code === "EXPIRED_OOB_CODE") {
-                    return "This confirmation link has expired. Open the app and request a new verification email.";
-                }
-                if (code === "INVALID_OOB_CODE") {
-                    return "This link is no longer valid. If you already confirmed, return to the app. Otherwise request a new verification email.";
-                }
-                return "We could not confirm this email. Open the app and request a new verification email.";
+            if (code === "INVALID_OOB_CODE") {
+                return "This link is no longer valid. If you already confirmed, return to the app. Otherwise request a new verification email.";
             }
+            return "We could not confirm this email. Open the app and request a new verification email.";
+        }
 
-            if (mode && mode !== "verifyEmail") {
-                setStatus("Link not recognized", "Open the verification email from Ramblex and use the confirm link there.");
-                return;
-            }
+        if (mode && mode !== "verifyEmail") {
+            setStatus("Link not recognized", "Open the verification email from Ramblex and use the confirm link there.");
+            return;
+        }
 
-            if (!oobCode || !apiKey) {
-                setStatus("Email confirmed", confirmedCopy);
-                return;
-            }
+        if (!oobCode || !apiKey) {
+            setStatus("Email confirmed", confirmedCopy);
+            return;
+        }
 
-            fetch(
-                "https://identitytoolkit.googleapis.com/v1/accounts:update?key=" +
-                    encodeURIComponent(apiKey),
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ oobCode: oobCode }),
-                },
-            )
-                .then(function (res) {
-                    return res.json().then(function (data) {
-                        return { ok: res.ok, data: data };
-                    });
-                })
-                .then(function (result) {
-                    if (result.ok) {
-                        setStatus("Email confirmed", confirmedCopy);
-                        return;
-                    }
-                    var code = (result.data && result.data.error && result.data.error.message) || "";
-                    setStatus("Could not confirm email", errorCopy(code));
-                })
-                .catch(function () {
-                    setStatus(
-                        "Could not confirm email",
-                        "Check your connection and open the link again, or request a new verification email in the app.",
-                    );
+        fetch(
+            "https://identitytoolkit.googleapis.com/v1/accounts:update?key=" +
+                encodeURIComponent(apiKey),
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ oobCode: oobCode }),
+            },
+        )
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { ok: res.ok, data: data };
                 });
-        })();
-    </script>
+            })
+            .then(function (result) {
+                if (result.ok) {
+                    setStatus("Email confirmed", confirmedCopy);
+                    return;
+                }
+                var code = (result.data && result.data.error && result.data.error.message) || "";
+                setStatus("Could not confirm email", errorCopy(code));
+            })
+            .catch(function () {
+                setStatus(
+                    "Could not confirm email",
+                    "Check your connection and open the link again, or request a new verification email in the app.",
+                );
+            });
+    })();
+</script>
+
 </body>
 </html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{title}}</title>
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        body { margin: 0; padding: 0; width: 100% !important; min-height: 100vh; }
+        @media only screen and (max-width: 620px) {
+            .email-container { width: 100% !important; max-width: 100% !important; }
+            .card-padding { padding: 32px 24px 28px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background-color:#F4F4F7;">
+    <center style="width:100%; background-color:#F4F4F7; min-height:100vh;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F4F4F7; min-height:100vh;">
+            <tr>
+                <td align="center" style="padding: 36px 16px 48px;">
+                    <table role="presentation" class="email-container" width="600" cellspacing="0" cellpadding="0" border="0" style="width: 600px; max-width: 600px;">
+                        <tr>
+                            <td align="center" style="padding: 0 0 28px;">
+                                <a href="https://kudosaitech.com/" target="_blank" style="display: inline-block; text-decoration: none;">
+                                    <img src="/assets/ramblex-logo.png" alt="Ramblex" width="280" style="display: block; width: 280px; max-width: 80%; height: auto; border: 0;">
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table role="presentation" class="email-container" width="600" cellspacing="0" cellpadding="0" border="0" style="width: 600px; max-width: 600px; background-color: #FFFFFF; border: 1px solid #ECECEF; border-radius: 8px; box-shadow: 0 3px 12px rgba(24, 24, 31, 0.08);">
+                        <tr>
+                            <td class="card-padding" style="padding: 58px 66px 54px;">
+                                {{{body}}}
+
+                                {{{signoffBlock}}}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </center>
+    {{{scripts}}}
+</body>
+</html>
