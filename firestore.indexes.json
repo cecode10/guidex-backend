@@ -26,6 +26,16 @@
       ]
     },
     {
+      "collectionGroup": "fcmTokens",
+      "fieldPath": "token",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
       "collectionGroup": "checkins",
       "fieldPath": "imageUrl",
       "indexes": [

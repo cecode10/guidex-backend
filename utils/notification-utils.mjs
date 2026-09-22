@@ -223,7 +223,13 @@ export const sendPushToUser = async (db, messaging, recipientUid, payload) => {
     if (tokenEntries.length === 0) return 0;
 
     const tokens = tokenEntries.map((entry) => entry.token);
-    const result = await sendMulticast(messaging, tokens, payload);
+    const result = await sendMulticast(messaging, tokens, {
+        ...payload,
+        data: {
+            ...payload.data,
+            recipientUid,
+        },
+    });
     await pruneInvalidTokens(db, recipientUid, tokenEntries, result.responses);
     return result.successCount;
 };
@@ -234,3 +240,43 @@ export const sendPushToUser = async (db, messaging, recipientUid, payload) => {
  */
 export const tokenDocumentId = (token) =>
     createHash("sha256").update(token).digest("hex").slice(0, 32);
+
+const FIRESTORE_BATCH_LIMIT = 450;
+
+/**
+ * A device token may be registered to only one account. After login/logout on
+ * a shared device, drop this token from every user except [ownerUid].
+ *
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {string} token
+ * @param {string} ownerUid
+ * @returns {Promise<number>}
+ */
+export const releaseFcmTokenFromOtherUsers = async (db, token, ownerUid) => {
+    if (typeof token !== "string" || token.length === 0) return 0;
+    if (typeof ownerUid !== "string" || ownerUid.length === 0) return 0;
+
+    const snapshot = await db
+        .collectionGroup("fcmTokens")
+        .where("token", "==", token)
+        .get();
+
+    const staleRefs = [];
+    for (const doc of snapshot.docs) {
+        const otherUid = doc.ref.parent.parent?.id;
+        if (!otherUid || otherUid === ownerUid) continue;
+        staleRefs.push(doc.ref);
+    }
+
+    let removed = 0;
+    for (let i = 0; i < staleRefs.length; i += FIRESTORE_BATCH_LIMIT) {
+        const batch = db.batch();
+        const chunk = staleRefs.slice(i, i + FIRESTORE_BATCH_LIMIT);
+        for (const ref of chunk) {
+            batch.delete(ref);
+        }
+        await batch.commit();
+        removed += chunk.length;
+    }
+    return removed;
+};

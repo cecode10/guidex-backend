@@ -10,6 +10,7 @@ import {
     extractNotificationSetting,
     matchesBinaryPolicy,
     matchesThreeWayPolicy,
+    releaseFcmTokenFromOtherUsers,
     tokenDocumentId,
 } from "../utils/notification-utils.mjs";
 
@@ -57,4 +58,84 @@ describe("notification-utils", () => {
         expect(id).toHaveLength(32);
         expect(id).toBe(tokenDocumentId("abc123"));
     });
+
+    it("releaseFcmTokenFromOtherUsers deletes the token from every other account", async () => {
+        const db = createFakeTokenDb([
+            { uid: "account-a", token: "device-token" },
+            { uid: "account-c", token: "device-token" },
+            { uid: "account-a", token: "other-device" },
+        ]);
+
+        const removed = await releaseFcmTokenFromOtherUsers(db, "device-token", "account-c");
+
+        expect(removed).toBe(1);
+        expect(db.paths()).toEqual([
+            "users/account-a/fcmTokens/other-device",
+            "users/account-c/fcmTokens/device-token",
+        ]);
+    });
+
+    it("releaseFcmTokenFromOtherUsers ignores empty input", async () => {
+        const db = createFakeTokenDb([
+            { uid: "account-a", token: "device-token" },
+        ]);
+
+        expect(await releaseFcmTokenFromOtherUsers(db, "", "account-c")).toBe(0);
+        expect(await releaseFcmTokenFromOtherUsers(db, "device-token", "")).toBe(0);
+        expect(db.paths()).toEqual(["users/account-a/fcmTokens/device-token"]);
+    });
 });
+
+/**
+ * @param {Array<{ uid: string, token: string }>} entries
+ */
+function createFakeTokenDb(entries) {
+    const store = new Map(
+        entries.map((entry) => [
+            `users/${entry.uid}/fcmTokens/${entry.token}`,
+            { token: entry.token },
+        ]),
+    );
+
+    const docFromPath = (path) => {
+        const uid = path.split("/")[1];
+        return {
+            data: () => store.get(path),
+            ref: {
+                path,
+                parent: { parent: { id: uid } },
+            },
+        };
+    };
+
+    return {
+        paths: () => [...store.keys()].sort(),
+        collectionGroup() {
+            return {
+                where(field, _op, value) {
+                    return {
+                        async get() {
+                            const docs = [];
+                            for (const [path, data] of store) {
+                                if (data[field] === value) docs.push(docFromPath(path));
+                            }
+                            return { docs };
+                        },
+                    };
+                },
+            };
+        },
+        batch() {
+            /** @type {string[]} */
+            const deletes = [];
+            return {
+                delete(ref) {
+                    deletes.push(ref.path);
+                },
+                async commit() {
+                    for (const path of deletes) store.delete(path);
+                },
+            };
+        },
+    };
+}
