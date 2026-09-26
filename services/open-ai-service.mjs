@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
 let openai;
-const getClient = () => {
+export const getClient = () => {
     if (!openai) {
         openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     }

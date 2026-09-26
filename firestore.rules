@@ -94,16 +94,44 @@ service cloud.firestore {
       return request.resource.data.termsAcceptance == resource.data.termsAcceptance;
     }
 
+    // Username, about, and avatar are written by `updateProfileContent`.
+    // Clients may update the rest of the profile document.
+    function moderatedProfileFieldUnchanged(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
+    }
+
+    function moderatedProfileFieldsUnchanged() {
+      return moderatedProfileFieldUnchanged('username')
+        && moderatedProfileFieldUnchanged('usernameLower')
+        && moderatedProfileFieldUnchanged('about')
+        && moderatedProfileFieldUnchanged('photoUrl')
+        && moderatedProfileFieldUnchanged('photoURL')
+        && moderatedProfileFieldUnchanged('searchWordPrefixes');
+    }
+
+    function profileOmitsModeratedFields() {
+      return !request.resource.data.keys().hasAny([
+        'username',
+        'usernameLower',
+        'about',
+        'photoUrl',
+        'photoURL',
+        'searchWordPrefixes'
+      ]);
+    }
+
     // Users Collection
     match /users/{userId} {
       // Anyone logged in can read user profiles (needed for search and feed)
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.auth.uid == userId
-        && !request.resource.data.keys().hasAny(['termsAcceptance']);
+        && !request.resource.data.keys().hasAny(['termsAcceptance'])
+        && profileOmitsModeratedFields();
       allow update: if isSignedIn()
         && request.auth.uid == userId
-        && termsAcceptanceUnchanged();
+        && termsAcceptanceUnchanged()
+        && moderatedProfileFieldsUnchanged();
       allow delete: if isSignedIn() && request.auth.uid == userId;
 
       // IP / user-agent audit for Terms acceptance. Admin SDK only.
@@ -165,18 +193,16 @@ service cloud.firestore {
             userId,
             get(/databases/$(database)/documents/users/$(userId)).data
           );
-        // Owner create/delete: AuthGuard already gates unverified password users.
-        // Keep this as isSignedIn() so token claim quirks cannot block posting.
-        allow create: if isSignedIn()
-          && request.auth.uid == userId
-          && request.resource.data.userId == userId;
+        // Created by the `createCheckIn` Cloud Function (Admin SDK).
+        allow create: if false;
         allow delete: if isSignedIn() && request.auth.uid == userId;
         // Likes update likeCount when the viewer is allowed to see the check-in.
         allow update: if isSignedIn()
           && checkInReadAllowed(
             userId,
             get(/databases/$(database)/documents/users/$(userId)).data
-          );
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount']);
 
         match /likes/{likerId} {
           allow read: if isSignedIn()
@@ -191,6 +217,11 @@ service cloud.firestore {
               get(/databases/$(database)/documents/users/$(userId)).data
             );
         }
+      }
+
+      // Staff-only copies of flagged check-ins and profile fields.
+      match /contentReviews/{reviewId} {
+        allow read, write: if false;
       }
     }
 

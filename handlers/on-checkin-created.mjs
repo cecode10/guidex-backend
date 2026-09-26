@@ -51,6 +51,21 @@ export const onCheckinCreated = onDocumentCreated(
         const checkInData = event.data?.data();
         if (!checkInData) return null;
 
+        const moderationStatus = checkInData.moderation?.status;
+        if (
+            typeof moderationStatus === "string"
+            && moderationStatus !== "approved"
+            && moderationStatus !== "pending"
+        ) {
+            console.log(
+                "onCheckinCreated: authorId=%s checkInId=%s skipped (moderation status=%s)",
+                authorId,
+                checkInId,
+                moderationStatus,
+            );
+            return null;
+        }
+
         const db = getFirestore();
         const messaging = getMessaging();
 

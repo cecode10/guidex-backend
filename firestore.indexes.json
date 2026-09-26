@@ -37,6 +37,16 @@
     },
     {
       "collectionGroup": "checkins",
+      "fieldPath": "moderation.status",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkins",
       "fieldPath": "imageUrl",
       "indexes": [
         {

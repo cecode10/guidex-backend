@@ -15,6 +15,15 @@ export const onUserProfileUpdate = onDocumentUpdated(
         const oldData = event.data.before.data() || {};
         const newData = event.data.after.data() || {};
 
+        const moderationStatus = newData.moderation?.status;
+        if (
+            typeof moderationStatus === "string"
+            && moderationStatus !== "approved"
+            && moderationStatus !== "pending"
+        ) {
+            return null;
+        }
+
         const usernameChanged = oldData.username !== newData.username;
         const displayNameChanged = oldData.displayName !== newData.displayName;
         const photoUrlChanged = oldData.photoUrl !== newData.photoUrl;

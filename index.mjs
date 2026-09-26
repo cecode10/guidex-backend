@@ -23,3 +23,6 @@ export { onCheckinLikeCreated } from "./handlers/on-checkin-like-created.mjs";
 export { onCheckinCreated } from "./handlers/on-checkin-created.mjs";
 export { onFollowerAdded } from "./handlers/on-follower-added.mjs";
 export { onUserReportCreated } from "./handlers/on-user-report-created.mjs";
+export { createCheckIn } from "./handlers/create-check-in.mjs";
+export { updateProfileContent } from "./handlers/update-profile-content.mjs";
+export { retryPendingModeration } from "./handlers/retry-pending-moderation.mjs";
