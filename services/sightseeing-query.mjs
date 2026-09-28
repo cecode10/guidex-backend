@@ -1,5 +1,9 @@
 import { flagFromIsoCode, MAX_NEARBY_RESULTS } from "../utils/geo-location-utils.mjs";
 import { NEARBY_RADIUS_KM } from "../utils/places-lookup-utils.mjs";
+import {
+    buildExploreAreaCandidateQuery,
+    pickSpreadPlaces,
+} from "../utils/explore-area-utils.mjs";
 import { sightseeingQuery } from "./sightseeing-db.mjs";
 
 /** @typedef {"sitelinks" | "distance"} SightseeingOrderBy */
@@ -153,6 +157,51 @@ LIMIT $4 OFFSET $5
     );
 
     return { places, hasMore };
+};
+
+/**
+ * Explore places inside a map area: the most popular place of each map cell
+ * (see `pickSpreadPlaces`), in popularity order. City and country come from
+ * each row, so no geocoding is involved.
+ *
+ * @param {import("../utils/explore-area-utils.mjs").ExploreArea} area
+ * @returns {Promise<{ places: Array<Record<string, unknown>>, candidateCount: number }>}
+ */
+export const findSightseeingInArea = async (area) => {
+    const candidateQuery = buildExploreAreaCandidateQuery(area);
+    const candidates = await sightseeingQuery(candidateQuery.text, candidateQuery.values);
+    const candidateRows = candidates.rows ?? [];
+    const picked = pickSpreadPlaces(candidateRows, area.zoomBand);
+    if (picked.length === 0) return { places: [], candidateCount: candidateRows.length };
+
+    const details = await sightseeingQuery(
+        `
+SELECT
+  wikidata_id,
+  name,
+  type,
+  category_label,
+  country_code,
+  country,
+  city,
+  sitelinks,
+  image_url,
+  wikipedia_url,
+  lat,
+  lng
+FROM sightseeing
+WHERE id = ANY($1::bigint[])
+ORDER BY sitelinks DESC, id ASC
+`.trim(),
+        [picked.map((row) => String(row.id))],
+    );
+
+    // Without a geocoded area there is no "nearby" city to fall back to.
+    const places = (details.rows ?? []).map((row) => ({
+        ...mapSightseeingRowToPlace(row),
+        city: String(row.city ?? "").trim() || String(row.country ?? "").trim(),
+    }));
+    return { places, candidateCount: candidateRows.length };
 };
 
 /**

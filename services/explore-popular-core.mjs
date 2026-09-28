@@ -137,6 +137,53 @@ export const forwardGeocodeHasLocalityMetadata = (geocodeResult, lat, lng) => {
 };
 
 /**
+ * Where the Explore map should fly for a forward geocode result: the result's
+ * point and, when Google provides one, its recommended viewport
+ * (`west > east` when it crosses the antimeridian).
+ *
+ * @param {Record<string, unknown>} result
+ * @returns {{
+ *   lat: number,
+ *   lng: number,
+ *   viewport: { south: number, west: number, north: number, east: number } | null,
+ * } | null}
+ */
+export const exploreSearchTargetFromGeocode = (result) => {
+    const geometry =
+        /** @type {{
+         *   location?: { lat?: unknown, lng?: unknown },
+         *   viewport?: {
+         *     northeast?: { lat?: unknown, lng?: unknown },
+         *     southwest?: { lat?: unknown, lng?: unknown },
+         *   },
+         * }} */ (result?.geometry ?? {});
+    const lat = geometry.location?.lat;
+    const lng = geometry.location?.lng;
+    if (typeof lat !== "number" || typeof lng !== "number") return null;
+
+    const north = geometry.viewport?.northeast?.lat;
+    const east = geometry.viewport?.northeast?.lng;
+    const south = geometry.viewport?.southwest?.lat;
+    const west = geometry.viewport?.southwest?.lng;
+    const hasViewport = [north, east, south, west].every(
+        (value) => typeof value === "number" && Number.isFinite(value),
+    );
+    return {
+        lat,
+        lng,
+        viewport:
+            hasViewport && /** @type {number} */ (south) <= /** @type {number} */ (north)
+                ? {
+                      south: /** @type {number} */ (south),
+                      west: /** @type {number} */ (west),
+                      north: /** @type {number} */ (north),
+                      east: /** @type {number} */ (east),
+                  }
+                : null,
+    };
+};
+
+/**
  * @param {unknown} error
  * @returns {number}
  */

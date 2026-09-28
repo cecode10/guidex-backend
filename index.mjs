@@ -14,6 +14,8 @@ export { onBlockedUsersUpdated } from "./handlers/on-blocked-users-updated.mjs";
 export { resolvePlaceImage } from "./handlers/resolve-place-image.mjs";
 export { resolveNearMePopular } from "./handlers/resolve-near-me-popular.mjs";
 export { resolveGlobalSearchPopular } from "./handlers/resolve-global-search-popular.mjs";
+export { resolveExploreArea } from "./handlers/resolve-explore-area.mjs";
+export { geocodeExploreSearch } from "./handlers/geocode-explore-search.mjs";
 export { resolveNearbyPlaces } from "./handlers/resolve-nearby-places.mjs";
 export { generateWalkingTrip } from "./handlers/generate-walking-trip.mjs";
 export { ensureSightseeingByQidFn as ensureSightseeingByQid } from "./handlers/ensure-sightseeing-by-qid.mjs";

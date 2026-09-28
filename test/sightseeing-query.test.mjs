@@ -132,3 +132,68 @@ describe("findNearbySightseeing SQL order", () => {
         vi.resetModules();
     });
 });
+
+describe("findSightseeingInArea", () => {
+    it("loads details only for the per-cell winners and uses each row's city", async () => {
+        const queryMock = vi
+            .fn()
+            .mockResolvedValueOnce({
+                rows: [
+                    { id: "1", lat: 48.8584, lng: 2.2945, sitelinks: 200 },
+                    { id: "2", lat: 48.8606, lng: 2.3376, sitelinks: 150 },
+                    { id: "3", lat: 41.8902, lng: 12.4922, sitelinks: 180 },
+                ],
+            })
+            .mockResolvedValueOnce({
+                rows: [
+                    {
+                        wikidata_id: "Q243",
+                        name: "Eiffel Tower",
+                        type: "LANDMARK",
+                        country_code: "FR",
+                        country: "France",
+                        city: "Paris",
+                        sitelinks: 200,
+                        lat: 48.8584,
+                        lng: 2.2945,
+                    },
+                    {
+                        wikidata_id: "Q10285",
+                        name: "Colosseum",
+                        type: "LANDMARK",
+                        country_code: "IT",
+                        country: "Italy",
+                        city: null,
+                        sitelinks: 180,
+                        lat: 41.8902,
+                        lng: 12.4922,
+                    },
+                ],
+            });
+
+        vi.resetModules();
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
+            sightseeingQuery: queryMock,
+            getSightseeingPool: vi.fn(),
+            closeSightseeingPool: vi.fn(),
+            resolveSightseeingDatabaseUrl: vi.fn(),
+            resetSightseeingPoolForTests: vi.fn(),
+        }));
+
+        const { findSightseeingInArea } = await import("../services/sightseeing-query.mjs");
+        const { parseExploreAreaRequest } = await import("../utils/explore-area-utils.mjs");
+
+        const { places, candidateCount } = await findSightseeingInArea(
+            parseExploreAreaRequest({ south: 35, west: -5, north: 55, east: 20, zoom: 4 }),
+        );
+
+        expect(candidateCount).toBe(3);
+        expect(queryMock.mock.calls[1][1]).toEqual([["1", "3"]]);
+        expect(places.map((p) => p.name)).toEqual(["Eiffel Tower", "Colosseum"]);
+        expect(places[0].city).toBe("Paris");
+        expect(places[1].city).toBe("Italy");
+
+        vi.doUnmock("../services/sightseeing-db.mjs");
+        vi.resetModules();
+    });
+});
