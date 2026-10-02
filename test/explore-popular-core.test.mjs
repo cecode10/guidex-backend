@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     explorePopularHttpStatus,
+    exploreSearchFromGeocodeResponse,
     exploreSearchTargetFromGeocode,
     forwardGeocodeHasLocalityMetadata,
 } from "../services/explore-popular-core.mjs";
@@ -38,11 +39,64 @@ describe("exploreSearchTargetFromGeocode", () => {
         expect(target.viewport.west).toBeGreaterThan(target.viewport.east);
     });
 
-    it("drops a missing viewport and rejects results without a point", () => {
+    it("drops a missing viewport and rejects results without a finite point", () => {
         expect(
             exploreSearchTargetFromGeocode({ geometry: { location: { lat: 1, lng: 2 } } }),
         ).toEqual({ lat: 1, lng: 2, viewport: null });
         expect(exploreSearchTargetFromGeocode({ geometry: {} })).toBeNull();
+        expect(
+            exploreSearchTargetFromGeocode({ geometry: { location: { lat: Number.NaN, lng: 2 } } }),
+        ).toBeNull();
+        expect(
+            exploreSearchTargetFromGeocode({
+                geometry: { location: { lat: 1, lng: Number.POSITIVE_INFINITY } },
+            }),
+        ).toBeNull();
+    });
+});
+
+describe("exploreSearchFromGeocodeResponse", () => {
+    const hit = {
+        status: "OK",
+        results: [{ geometry: { location: { lat: 41.9, lng: 12.5 } } }],
+    };
+
+    it("returns the point for an OK result", () => {
+        expect(exploreSearchFromGeocodeResponse(hit)).toMatchObject({
+            found: true,
+            target: { lat: 41.9, lng: 12.5, viewport: null },
+        });
+    });
+
+    it("treats ZERO_RESULTS as an empty search", () => {
+        expect(exploreSearchFromGeocodeResponse({ status: "ZERO_RESULTS", results: [] })).toEqual({
+            found: false,
+        });
+    });
+
+    it("rejects quota and denial statuses", () => {
+        for (const status of ["OVER_QUERY_LIMIT", "REQUEST_DENIED", "UNKNOWN_ERROR"]) {
+            expect(() => exploreSearchFromGeocodeResponse({ status, results: [] })).toThrow(
+                expect.objectContaining({
+                    statusCode: 502,
+                    message: expect.stringMatching(/Google geocode failed/),
+                }),
+            );
+        }
+    });
+
+    it("rejects an OK body with no finite point", () => {
+        expect(() =>
+            exploreSearchFromGeocodeResponse({
+                status: "OK",
+                results: [{ geometry: { location: { lat: Number.NaN, lng: 1 } } }],
+            }),
+        ).toThrow(
+            expect.objectContaining({
+                statusCode: 502,
+                message: expect.stringMatching(/no coordinates/),
+            }),
+        );
     });
 });
 

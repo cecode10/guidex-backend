@@ -6,7 +6,7 @@ import { geocodingLanguageFromAppLanguage } from "../utils/geocode-anchor-utils.
 import { deriveGeoLocationLabel } from "../utils/geo-location-utils.mjs";
 import {
     explorePopularHttpStatus,
-    exploreSearchTargetFromGeocode,
+    exploreSearchFromGeocodeResponse,
     fetchGoogleGeocode,
 } from "../services/explore-popular-core.mjs";
 
@@ -44,16 +44,17 @@ export const geocodeExploreSearch = onRequest(
 
             const language = geocodingLanguageFromAppLanguage(payload.language);
             const geocode = await fetchGoogleGeocode(query, language, googleMapsApiKey.value());
-            const best = geocode.status === "OK" ? geocode.results?.[0] : undefined;
-            const target = best ? exploreSearchTargetFromGeocode(best) : null;
+            const outcome = exploreSearchFromGeocodeResponse(geocode);
 
             const elapsed = Date.now() - start;
-            if (!best || !target) {
+            if (!outcome.found) {
                 console.log(
                     `[${FUNCTION_NAME}] notFound query="${query}" (${geocode.status}) in ${elapsed}ms`,
                 );
                 return res.status(200).json({ found: false });
             }
+
+            const { result: best, target } = outcome;
 
             console.log(
                 `[${FUNCTION_NAME}] query="${query}" lat=${target.lat} lng=${target.lng} ` +

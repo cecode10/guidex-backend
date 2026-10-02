@@ -160,6 +160,7 @@ export const exploreSearchTargetFromGeocode = (result) => {
     const lat = geometry.location?.lat;
     const lng = geometry.location?.lng;
     if (typeof lat !== "number" || typeof lng !== "number") return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
     const north = geometry.viewport?.northeast?.lat;
     const east = geometry.viewport?.northeast?.lng;
@@ -181,6 +182,35 @@ export const exploreSearchTargetFromGeocode = (result) => {
                   }
                 : null,
     };
+};
+
+/**
+ * Explore search outcome for one Geocoding response.
+ * `ZERO_RESULTS` is an empty search. Any other failure, including an `OK`
+ * body with no finite point, is a 502.
+ *
+ * @param {{ status?: string, results?: Array<Record<string, unknown>> } | null | undefined} geocode
+ * @returns {{ found: false } | {
+ *   found: true,
+ *   result: Record<string, unknown>,
+ *   target: NonNullable<ReturnType<typeof exploreSearchTargetFromGeocode>>,
+ * }}
+ */
+export const exploreSearchFromGeocodeResponse = (geocode) => {
+    if (geocode?.status === "ZERO_RESULTS") return { found: false };
+
+    const best = geocode?.status === "OK" ? geocode.results?.[0] : undefined;
+    const target = best ? exploreSearchTargetFromGeocode(best) : null;
+    if (!best || !target) {
+        const err = new Error(
+            geocode?.status === "OK"
+                ? "Google Geocoding returned no coordinates"
+                : `Google geocode failed (${geocode?.status ?? "unknown"})`,
+        );
+        err.statusCode = 502;
+        throw err;
+    }
+    return { found: true, result: best, target };
 };
 
 /**
