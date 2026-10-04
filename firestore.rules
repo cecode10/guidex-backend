@@ -110,6 +110,16 @@ service cloud.firestore {
             && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)));
     }
 
+    // Same likes visibility for the legacy posts collection, using posts/{postId}.authorId.
+    function postLikersReadAllowed(postId) {
+      let authorId = get(/databases/$(database)/documents/posts/$(postId)).data.authorId;
+      return authorId is string
+        && likersReadAllowed(
+          authorId,
+          get(/databases/$(database)/documents/users/$(authorId)).data
+        );
+    }
+
     // Terms acceptance is written only by the `acceptTerms` Cloud Function
     // (Admin SDK). Clients must not create, change, or delete this field.
     function termsAcceptanceUnchanged() {
@@ -288,11 +298,12 @@ service cloud.firestore {
       // Updates are generally restricted, except for incrementing like counts (handled via transactions)
       allow update: if isSignedInAndVerified();
 
-      // Likes Subcollection
-      match /likes/{userId} {
-        allow read: if isSignedIn();
-        // Users can only add/remove their own likes
-        allow write: if isSignedInAndVerified() && request.auth.uid == userId;
+      // Likes Subcollection. A liker can always read their own like.
+      match /likes/{likeUserId} {
+        allow get: if isSignedIn()
+          && (request.auth.uid == likeUserId || postLikersReadAllowed(postId));
+        allow list: if isSignedIn() && postLikersReadAllowed(postId);
+        allow write: if isSignedInAndVerified() && request.auth.uid == likeUserId;
       }
     }
 

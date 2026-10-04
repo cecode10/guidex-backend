@@ -30,6 +30,7 @@
         "deploy:onCheckinCreated": "firebase deploy --only functions:onCheckinCreated",
         "deploy:onFollowerAdded": "firebase deploy --only functions:onFollowerAdded",
         "deploy:onUserReportCreated": "firebase deploy --only functions:onUserReportCreated",
+        "deploy:purgeReportEvidence": "firebase deploy --only functions:purgeReportEvidence",
         "deploy:createCheckIn": "firebase deploy --only functions:createCheckIn",
         "deploy:updateProfileContent": "firebase deploy --only functions:updateProfileContent",
         "deploy:retryPendingModeration": "firebase deploy --only functions:retryPendingModeration",
