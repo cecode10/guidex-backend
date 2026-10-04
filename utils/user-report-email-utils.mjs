@@ -31,7 +31,7 @@ export const reportMailSubject = ({ category, reporterEmail } = {}) => {
     const important = category === "csam" ? `${CSAM_SUBJECT_PREFIX} ` : "";
     if (!label) {
         return reporterEmail
-            ? "We received your report"
+            ? "User report received"
             : "User report received (reporter has no email)";
     }
     const suffix = reporterEmail ? "" : " (reporter has no email)";
@@ -46,6 +46,7 @@ export const reportMailSubject = ({ category, reporterEmail } = {}) => {
  *   reportedUsername: string,
  *   category: string,
  *   reason: string,
+ *   postId: string,
  *   reporterEmail: string | null,
  * }}
  */
@@ -65,12 +66,16 @@ export const reportFieldsFromDoc = (reportData) => {
     const reason = typeof reportData?.reason === "string"
         ? reportData.reason.trim()
         : "";
+    const postId = typeof reportData?.postId === "string"
+        ? reportData.postId.trim()
+        : "";
     return {
         reporterId,
         reportedUserId,
         reportedUsername,
         category,
         reason,
+        postId,
         reporterEmail: normalizeEmail(reportData?.reporterEmail),
     };
 };
@@ -89,8 +94,33 @@ export const formatReportReasonBody = (category, reason) => {
     return details || label || "(none provided)";
 };
 
+export const REPORTER_MAIL_SUBJECT = "We received your report";
+
 /**
- * Content for {@link import("../services/mail-service.mjs").sendMail}.
+ * Confirmation of receipt for the reporter. Carries only the report reference;
+ * user and post identifiers stay in {@link buildReportSupportMail}.
+ *
+ * @param {{ reporterEmail: string, reportId: string }} input
+ */
+export const buildReportReceivedMail = ({ reporterEmail, reportId }) => {
+    const { html, text } = renderMailTemplate("report-received", {
+        reportId: reportId || "(unknown)",
+        title: REPORTER_MAIL_SUBJECT,
+        signoff: 'Your Kudosai team',
+        footerNotice:
+            "This is a service email sent because a user report was submitted from a Ramblex account associated with this address. It is not marketing communication.",
+    });
+
+    return {
+        to: reporterEmail,
+        subject: REPORTER_MAIL_SUBJECT,
+        text,
+        html,
+    };
+};
+
+/**
+ * Full report details for support.
  *
  * @param {{
  *   reporterEmail: string | null,
@@ -99,47 +129,38 @@ export const formatReportReasonBody = (category, reason) => {
  *   reportedUsername: string,
  *   category?: string,
  *   reason: string,
+ *   postId?: string,
  *   reportId: string,
  * }} input
  */
-export const buildReportReceivedMail = ({
+export const buildReportSupportMail = ({
     reporterEmail,
     reporterId,
     reportedUserId,
     reportedUsername,
     category = "",
     reason,
+    postId = "",
     reportId,
 }) => {
     const accused = reportedUsername || reportedUserId || "(not specified)";
     const categoryLabel = reportCategoryLabel(category) || "(none provided)";
-    const { html, text } = renderMailTemplate("report-received", {
+    const { html, text } = renderMailTemplate("report-support", {
         reportId: reportId || "(unknown)",
         reporterId: reporterId || "(unknown)",
+        reporterEmail: reporterEmail || "(none)",
         reportedUser: reportedUserId ? `${accused} (${reportedUserId})` : accused,
+        postId: postId || "(none)",
         categoryLabel,
         reason: formatReportReasonBody(category, reason),
-        title: "We received your report",
-        signoff: 'Your Kudosai team',
-        footerNotice:
-            "This is a service email sent because a user report was submitted from a Ramblex account associated with this address. It is not marketing communication.",
+        title: "New user report",
+        signoff: 'Ramblex reports',
+        footerNotice: "Internal moderation notification. Do not forward to the reporter or the reported user.",
     });
-
-    const subject = reportMailSubject({ category, reporterEmail });
-
-    if (reporterEmail) {
-        return {
-            to: reporterEmail,
-            bccSupport: true,
-            subject,
-            text,
-            html,
-        };
-    }
 
     return {
         to: MAIL_SUPPORT_BCC,
-        subject,
+        subject: reportMailSubject({ category, reporterEmail }),
         text,
         html,
     };

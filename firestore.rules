@@ -42,6 +42,20 @@ service cloud.firestore {
       return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
     }
 
+    // Who may see the likers of this user's check-ins (mirrors app `ProfilePrivacyService`).
+    function effectiveWhoCanSeeMyLikes(data) {
+      let raw = data == null ? 'everyone' : (
+        (data.settings is map
+            && 'whoCanSeeMyLikes' in data.settings
+            && data.settings.whoCanSeeMyLikes is string)
+          ? data.settings.whoCanSeeMyLikes
+          : (data.keys().hasAny(['whoCanSeeMyLikes']) && data.whoCanSeeMyLikes is string
+              ? data.whoCanSeeMyLikes
+              : 'everyone')
+      );
+      return (raw == 'everyone' || raw == 'people_i_follow' || raw == 'no_one') ? raw : 'everyone';
+    }
+
     function blockedUserIds(data) {
       return (data != null
           && data.keys().hasAny(['blockedUserIds'])
@@ -86,6 +100,14 @@ service cloud.firestore {
                 && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)))
           )
         );
+    }
+
+    // Viewer may list likers of author check-ins when owner, everyone, or author follows viewer.
+    function likersReadAllowed(authorId, authorData) {
+      return request.auth.uid == authorId
+        || effectiveWhoCanSeeMyLikes(authorData) == 'everyone'
+        || (effectiveWhoCanSeeMyLikes(authorData) == 'people_i_follow'
+            && exists(/databases/$(database)/documents/users/$(authorId)/friends/$(request.auth.uid)));
     }
 
     // Terms acceptance is written only by the `acceptTerms` Cloud Function
@@ -205,8 +227,23 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount']);
 
         match /likes/{likerId} {
-          allow read: if isSignedIn()
+          // A liker can always read their own like (like/unlike transactions).
+          allow get: if isSignedIn()
             && checkInReadAllowed(
+              userId,
+              get(/databases/$(database)/documents/users/$(userId)).data
+            )
+            && (request.auth.uid == likerId
+              || likersReadAllowed(
+                userId,
+                get(/databases/$(database)/documents/users/$(userId)).data
+              ));
+          allow list: if isSignedIn()
+            && checkInReadAllowed(
+              userId,
+              get(/databases/$(database)/documents/users/$(userId)).data
+            )
+            && likersReadAllowed(
               userId,
               get(/databases/$(database)/documents/users/$(userId)).data
             );
@@ -231,10 +268,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
     }
 
-    // Collection-group queries on any `likes` subcollection
-    // (e.g. CheckmarksService.ensureLikesBound() via collectionGroup('likes')).
+    // Collection-group queries on any `likes` subcollection, limited to the
+    // caller's own likes (CheckmarksService.ensureLikesBound() filters
+    // `userId == uid`). Other likers stay behind `whoCanSeeMyLikes`.
     match /{document=**}/likes/{likeDocId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Posts Collection
@@ -297,6 +335,10 @@ service cloud.firestore {
     match /user-reports/{reportId} {
       allow create: if isSignedInAndVerified()
         && request.resource.data.reporterId == request.auth.uid
+        && !request.resource.data.keys().hasAny(['evidence', 'evidencePurgedAt'])
+        && (!('postId' in request.resource.data)
+            || (request.resource.data.postId is string
+                && request.resource.data.postId.size() <= 200))
         && request.resource.data.reportedUserId is string
         && request.resource.data.reportedUserId != request.auth.uid
         && request.resource.data.reason is string
