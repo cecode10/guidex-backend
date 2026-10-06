@@ -82,6 +82,7 @@ export const mapSightseeingRowToPlace = (row, context = {}) => {
  *   country?: string,
  *   countryCode?: string | null,
  *   countryFlag?: string,
+ *   maxLimit?: number,
  * }} [options]
  * @returns {Promise<{ places: Array<Record<string, unknown>>, hasMore: boolean }>}
  */
@@ -97,10 +98,13 @@ export const findNearbySightseeing = async (
         country = "",
         countryCode = null,
         countryFlag,
+        /** Hard cap on [limit]; Explore radius allows more than check-in. */
+        maxLimit = 100,
     } = {},
 ) => {
     const radiusM = Math.max(Number(radiusKm) || NEARBY_RADIUS_KM, 0.1) * 1000;
-    const safeLimit = Math.max(1, Math.min(Number(limit) || MAX_NEARBY_RESULTS, 100));
+    const hardCap = Math.max(1, Math.min(Number(maxLimit) || 100, 200));
+    const safeLimit = Math.max(1, Math.min(Number(limit) || MAX_NEARBY_RESULTS, hardCap));
     const safeOffset = Math.max(0, Number.parseInt(String(offset), 10) || 0);
     const orderClause =
         orderBy === "distance"
@@ -109,6 +113,20 @@ export const findNearbySightseeing = async (
 
     // Fetch one extra row to detect hasMore without a separate COUNT.
     const fetchLimit = safeLimit + 1;
+
+    const values = [lng, lat, radiusM];
+    let countryClause = "";
+    const code =
+        countryCode != null && String(countryCode).trim()
+            ? String(countryCode).trim().toUpperCase().slice(0, 2)
+            : null;
+    if (code) {
+        values.push(code);
+        countryClause = `\n  AND country_code = $${values.length}`;
+    }
+    values.push(fetchLimit, safeOffset);
+    const limitIdx = values.length - 1;
+    const offsetIdx = values.length;
 
     const result = await sightseeingQuery(
         `
@@ -134,11 +152,11 @@ WHERE ST_DWithin(
   location,
   ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
   $3
-)
+)${countryClause}
 ORDER BY ${orderClause}
-LIMIT $4 OFFSET $5
+LIMIT $${limitIdx} OFFSET $${offsetIdx}
 `.trim(),
-        [lng, lat, radiusM, fetchLimit, safeOffset],
+        values,
     );
 
     const rows = result.rows ?? [];
