@@ -9,8 +9,9 @@ const FUNCTION_NAME = "resolveExploreArea";
 
 /**
  * Cloud Function: Explore places inside the map area the user is looking at.
- * Body: `{ south, west, north, east, zoom }` (`west > east` crosses the
- * antimeridian). Returns the most popular place per map cell (PostGIS only).
+ * Body: `{ south, west, north, east, zoom, countryCode? }` (`west > east`
+ * crosses the antimeridian). When `countryCode` is set, only that country's
+ * rows are considered. Returns the most popular place per map cell (PostGIS).
  */
 export const resolveExploreArea = onRequest(
     sightseeingHttpsOptions({
@@ -28,6 +29,7 @@ export const resolveExploreArea = onRequest(
             console.log(
                 `[${FUNCTION_NAME}] s=${area.south} w=${area.west} n=${area.north} ` +
                     `e=${area.east} zoom=${area.zoom} band=${area.zoomBand} ` +
+                    `country=${area.countryCode ?? "-"} ` +
                     `candidates=${candidateCount} places=${places.length} in ${elapsed}ms`,
             );
             return res.status(200).json({

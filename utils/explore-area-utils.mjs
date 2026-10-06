@@ -42,6 +42,7 @@ const EARTH_RADIUS_M = 6_371_000;
  *   zoom: number,
  *   zoomBand: number,
  *   crossesAntimeridian: boolean,
+ *   countryCode: string | null,
  * }} ExploreArea
  */
 
@@ -60,8 +61,10 @@ const finiteNumber = (value, name) => {
 };
 
 /**
- * Validates `{ south, west, north, east, zoom }`. `west > east` means the
- * area crosses the antimeridian; `west = -180, east = 180` is the whole world.
+ * Validates `{ south, west, north, east, zoom }` plus optional `countryCode`.
+ * `west > east` means the area crosses the antimeridian; `west = -180, east = 180`
+ * is the whole world. When `countryCode` is set, place rows are limited to that
+ * ISO country so a country-sized viewport does not leak neighbors.
  *
  * @param {Record<string, unknown>} payload
  * @returns {ExploreArea}
@@ -83,6 +86,14 @@ export const parseExploreAreaRequest = (payload) => {
         throw badRequest("zoom must be within [0, 30]");
     }
 
+    let countryCode = null;
+    if (payload?.countryCode != null && String(payload.countryCode).trim()) {
+        countryCode = String(payload.countryCode).trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(countryCode)) {
+            throw badRequest("countryCode must be a 2-letter ISO code");
+        }
+    }
+
     return {
         south,
         west,
@@ -91,6 +102,7 @@ export const parseExploreAreaRequest = (payload) => {
         zoom,
         zoomBand: exploreZoomBand(zoom),
         crossesAntimeridian: west > east,
+        countryCode,
     };
 };
 
@@ -189,22 +201,28 @@ export const buildExploreAreaCandidateQuery = (
     const lngClause = area.crossesAntimeridian
         ? "(lng >= $3 OR lng <= $4)"
         : "lng BETWEEN $3 AND $4";
+    let countryClause = "";
+    if (area.countryCode) {
+        values.push(area.countryCode);
+        countryClause = `\n  AND country_code = $${values.length}`;
+    }
     const spatial = exploreAreaSpatialFilter(area);
     let spatialClause = "";
     if (spatial) {
         values.push(spatial.lng, spatial.lat, spatial.radiusM);
+        const radiusIdx = values.length;
         spatialClause = `
   AND ST_DWithin(
     location,
-    ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-    $8
+    ST_SetSRID(ST_MakePoint($${radiusIdx - 2}, $${radiusIdx - 1}), 4326)::geography,
+    $${radiusIdx}
   )`;
     }
     const text = `
 SELECT id, lat, lng, sitelinks
 FROM sightseeing
 WHERE lat BETWEEN $1 AND $2
-  AND ${lngClause}${spatialClause}
+  AND ${lngClause}${countryClause}${spatialClause}
 ORDER BY sitelinks DESC, id ASC
 LIMIT $5
 `.trim();
