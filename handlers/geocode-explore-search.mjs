@@ -3,7 +3,10 @@ import { defineSecret } from "firebase-functions/params";
 import { requireAuth } from "../utils/auth.mjs";
 import { validateMandatoryFields } from "../utils/event-utils.mjs";
 import { geocodingLanguageFromAppLanguage } from "../utils/geocode-anchor-utils.mjs";
-import { deriveGeoLocationLabel } from "../utils/geo-location-utils.mjs";
+import {
+    countryCodeFromGeocodeResult,
+    deriveGeoLocationLabel,
+} from "../utils/geo-location-utils.mjs";
 import {
     explorePopularHttpStatus,
     exploreSearchFromGeocodeResponse,
@@ -16,8 +19,9 @@ const MIN_QUERY_LEN = 2;
 const MAX_QUERY_LEN = 200;
 
 /**
- * Cloud Function: resolves an Explore search ("Rome", "Eiffel Tower") to the
- * point and viewport the map should fly to. Places are then loaded for that
+ * Cloud Function: resolves an Explore search ("Rome", "France", "Eiffel Tower")
+ * to the point and viewport the map should fly to, plus `countryCode` / `types`
+ * so country searches can scope places. Places are then loaded for that
  * viewport by `resolveExploreArea`.
  */
 export const geocodeExploreSearch = onRequest(
@@ -55,10 +59,16 @@ export const geocodeExploreSearch = onRequest(
             }
 
             const { result: best, target } = outcome;
+            const countryCode = countryCodeFromGeocodeResult(best);
+            const types = Array.isArray(best.types)
+                ? best.types.map((value) => String(value))
+                : [];
 
             console.log(
                 `[${FUNCTION_NAME}] query="${query}" lat=${target.lat} lng=${target.lng} ` +
-                    `viewport=${target.viewport ? "yes" : "no"} in ${elapsed}ms`,
+                    `viewport=${target.viewport ? "yes" : "no"} ` +
+                    `country=${countryCode ?? "-"} types=${types.join(",") || "-"} ` +
+                    `in ${elapsed}ms`,
             );
             return res.status(200).json({
                 found: true,
@@ -66,6 +76,8 @@ export const geocodeExploreSearch = onRequest(
                 lat: target.lat,
                 lng: target.lng,
                 viewport: target.viewport,
+                countryCode,
+                types,
             });
         } catch (error) {
             const elapsed = Date.now() - start;
