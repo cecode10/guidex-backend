@@ -8,7 +8,7 @@ export const getClient = () => {
     return openai;
 };
 
-const model = "gpt-5.6-luna";
+const model = "gpt-6-luna";
 const model41mini = "gpt-4.1-mini";
 const model40tts = "gpt-4o-mini-tts";
 
