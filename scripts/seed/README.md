@@ -113,6 +113,34 @@ Optional `--direct` talks to Postgres in-process instead of the HTTP API.
 
 ---
 
+## 4. Backfill `city` from coordinates
+
+Country and continent seeds store `city` as null (only a `--city` seed fills it).
+Explore area reads that column directly, so those rows need a city label.
+
+The backfill reverse-geocodes `lat` / `lng` with [Nominatim](https://nominatim.org/)
+(OpenStreetMap), the same service the app uses for city names. The public
+instance allows at most one request per second. Points about 1.1 km apart share
+one lookup, and successes are cached, so running the script again does not
+repeat them. Rows that already have a city are left as they are.
+
+```bash
+export DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/sightseeing
+npm run script:sightseeing:backfill-city:dry-run
+npm run script:sightseeing:backfill-city
+npm run script:sightseeing:backfill-city -- --country-code FR
+```
+
+Re-run it after a continent seed so newly inserted rows pick up a city. Ctrl+C
+saves the cache; start the same command again to continue. A self-hosted
+Nominatim can be passed with `--nominatim-url` (the public delay floor then
+does not apply).
+
+Cache and progress: `scripts/seed/reports/backfill-sightseeing-city-cache.json`
+and `backfill-sightseeing-city-progress.log`.
+
+---
+
 ## Logs
 
 Geographic runs append `scripts/seed/reports/seed-*-progress.log` and write a

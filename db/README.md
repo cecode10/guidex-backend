@@ -33,6 +33,14 @@ npm run script:sightseeing:seed-north-america -- --country=USA
 
 Upserts merge by `wikidata_id`. Resume a long run with `--resume`.
 
+Country and continent seeds leave `city` null. Fill it from `lat` / `lng`
+(Nominatim) after a geographic seed:
+
+```bash
+npm run script:sightseeing:backfill-city:dry-run
+npm run script:sightseeing:backfill-city
+```
+
 ## Seed specific QIDs (admin)
 
 Calls the deployed `ensureSightseeingByQid` Cloud Function (no local DB access needed):

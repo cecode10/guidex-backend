@@ -65,7 +65,9 @@
         "script:sightseeing:seed-south-america": "node scripts/seed/seed-south-america-sightseeing.mjs",
         "script:sightseeing:seed-south-america:dry-run": "node scripts/seed/seed-south-america-sightseeing.mjs --dry-run --country=Uruguay --no-caffeinate",
         "script:sightseeing:seed-oceania": "node scripts/seed/seed-oceania-sightseeing.mjs",
-        "script:sightseeing:seed-oceania:dry-run": "node scripts/seed/seed-oceania-sightseeing.mjs --dry-run --country=Tonga --no-caffeinate"
+        "script:sightseeing:seed-oceania:dry-run": "node scripts/seed/seed-oceania-sightseeing.mjs --dry-run --country=Tonga --no-caffeinate",
+        "script:sightseeing:backfill-city": "node scripts/seed/backfill-sightseeing-city.mjs",
+        "script:sightseeing:backfill-city:dry-run": "node scripts/seed/backfill-sightseeing-city.mjs --dry-run --limit 20 --no-caffeinate"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
