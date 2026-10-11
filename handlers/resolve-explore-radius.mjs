@@ -70,6 +70,7 @@ export const resolveExploreRadius = onRequest(
                 offset: 0,
                 orderBy: "sitelinks",
                 countryCode,
+                filterCountryCode: countryCode,
                 maxLimit: EXPLORE_RADIUS_MAX_RESULTS,
             });
 

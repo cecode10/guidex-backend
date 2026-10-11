@@ -131,6 +131,42 @@ describe("findNearbySightseeing SQL order", () => {
         vi.doUnmock("../services/sightseeing-db.mjs");
         vi.resetModules();
     });
+
+    it("does not filter by countryCode (check-in display metadata) but does for filterCountryCode", async () => {
+        const queryMock = vi.fn().mockResolvedValue({ rows: [] });
+
+        vi.resetModules();
+        vi.doMock("../services/sightseeing-db.mjs", () => ({
+            sightseeingQuery: queryMock,
+            getSightseeingPool: vi.fn(),
+            closeSightseeingPool: vi.fn(),
+            resolveSightseeingDatabaseUrl: vi.fn(),
+            resetSightseeingPoolForTests: vi.fn(),
+        }));
+
+        const { findNearbySightseeing } = await import("../services/sightseeing-query.mjs");
+
+        await findNearbySightseeing(47.56, 7.59, {
+            orderBy: "distance",
+            limit: 20,
+            countryCode: "CH",
+        });
+        expect(queryMock.mock.calls[0][0]).not.toContain("AND country_code");
+        expect(queryMock.mock.calls[0][1]).toEqual([7.59, 47.56, expect.any(Number), 21, 0]);
+
+        await findNearbySightseeing(48.86, 2.35, {
+            orderBy: "sitelinks",
+            limit: 150,
+            maxLimit: 150,
+            countryCode: "FR",
+            filterCountryCode: "FR",
+        });
+        expect(queryMock.mock.calls[1][0]).toContain("AND country_code = $4");
+        expect(queryMock.mock.calls[1][1]).toEqual([2.35, 48.86, expect.any(Number), "FR", 151, 0]);
+
+        vi.doUnmock("../services/sightseeing-db.mjs");
+        vi.resetModules();
+    });
 });
 
 describe("findSightseeingInArea", () => {

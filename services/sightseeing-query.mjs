@@ -81,6 +81,7 @@ export const mapSightseeingRowToPlace = (row, context = {}) => {
  *   city?: string,
  *   country?: string,
  *   countryCode?: string | null,
+ *   filterCountryCode?: string | null,
  *   countryFlag?: string,
  *   maxLimit?: number,
  * }} [options]
@@ -97,6 +98,7 @@ export const findNearbySightseeing = async (
         city,
         country = "",
         countryCode = null,
+        filterCountryCode = null,
         countryFlag,
         /** Hard cap on [limit]; Explore radius allows more than check-in. */
         maxLimit = 100,
@@ -116,12 +118,15 @@ export const findNearbySightseeing = async (
 
     const values = [lng, lat, radiusM];
     let countryClause = "";
-    const code =
-        countryCode != null && String(countryCode).trim()
-            ? String(countryCode).trim().toUpperCase().slice(0, 2)
+    // `countryCode` is display metadata (flag / fallback). Only
+    // `filterCountryCode` scopes the SQL so check-in / walking trips near a
+    // border still return the other country's places.
+    const filterCode =
+        filterCountryCode != null && String(filterCountryCode).trim()
+            ? String(filterCountryCode).trim().toUpperCase().slice(0, 2)
             : null;
-    if (code) {
-        values.push(code);
+    if (filterCode) {
+        values.push(filterCode);
         countryClause = `\n  AND country_code = $${values.length}`;
     }
     values.push(fetchLimit, safeOffset);
