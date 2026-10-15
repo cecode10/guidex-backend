@@ -26,50 +26,59 @@ const normalizeOpenAiError = (error) => {
     return error;
 };
 
-export const analyzeImage = async (image, prompt) => {
+export const analyzeImageStreaming = async function* (image, userPrompt, instructions) {
     const imageInput = image?.trim();
     if (!imageInput) {
         throw new Error("image is required");
     }
 
-    const finalPrompt = prompt?.trim();
+    const finalPrompt = userPrompt?.trim();
     if (!finalPrompt) {
         throw new Error("prompt is required");
     }
 
-    console.log("finalPrompt = " + finalPrompt);
-    console.log("using model = " + model);
-    const payload = {
-        model,
-        input: [
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text: finalPrompt,
-                    },
-                    {
-                        type: "input_image",
-                        image_url: `data:image/jpeg;base64,${imageInput}`,
-                    },
-                ],
-            },
-        ],
-        tools: [{ type: "web_search" }],
-    };
-    // console.log("payload = " + JSON.stringify(payload));
+    const systemPrompt = instructions?.trim();
+    if (!systemPrompt) {
+        throw new Error("system prompt is required");
+    }
+
+    console.log("systemPrompt = " + systemPrompt);
+    console.log("userPrompt = " + finalPrompt);
+    console.log("using model (image streaming) = " + model);
     try {
         const start = Date.now();
-        const response = await getClient().responses.create(payload);
+        const stream = await getClient().responses.create({
+            model,
+            instructions: systemPrompt,
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: finalPrompt,
+                        },
+                        {
+                            type: "input_image",
+                            image_url: `data:image/jpeg;base64,${imageInput}`,
+                        },
+                    ],
+                },
+            ],
+            tools: [{ type: "web_search" }],
+            stream: true,
+        });
+        for await (const event of stream) {
+            if (event.type === "response.output_text.delta" && event.delta) {
+                yield event.delta;
+            }
+        }
         const elapsed = Date.now() - start;
-        console.log(`[analyzeImage] OpenAI API responded in ${elapsed}ms`);
-        console.log("response.output_text = " + JSON.stringify(response));
-        return response.output_text;
+        console.log(`[analyzeImageStreaming] OpenAI stream completed in ${elapsed}ms`);
     } catch (error) {
         throw normalizeOpenAiError(error);
     }
-}
+};
 
 const buildTextPromptPayload = (systemPrompt, userPrompt, options = {}) => {
     const { model: modelOverride, ...rest } = options;

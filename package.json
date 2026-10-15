@@ -9,8 +9,7 @@
     },
     "scripts": {
         "deploy:textPrompt": "firebase deploy --only functions:textPrompt",
-        "deploy:imageAnnotation": "firebase deploy --only functions:imageAnnotation",
-        "deploy:imageRecognition": "firebase deploy --only functions:imageRecognition",
+        "deploy:imageStory": "firebase deploy --only functions:imageStory",
         "deploy:textToSpeech": "firebase deploy --only functions:textToSpeech",
         "deploy:deleteAccount": "firebase deploy --only functions:deleteAccount",
         "deploy:sendEmailVerification": "firebase deploy --only functions:sendEmailVerification",
@@ -44,7 +43,7 @@
         "deploy:batch:explorePopular": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveExploreArea,functions:resolveExploreRadius,functions:geocodeExploreSearch",
         "deploy:batch:notifications": "firebase deploy --only functions:onFcmTokenWritten,functions:onCheckinLikeCreated,functions:onCheckinCreated,functions:onFollowerAdded",
         "deploy:batch:sightseeing": "firebase deploy --only functions:resolveNearMePopular,functions:resolveGlobalSearchPopular,functions:resolveExploreArea,functions:resolveExploreRadius,functions:geocodeExploreSearch,functions:resolveNearbyPlaces,functions:generateWalkingTrip,functions:ensureSightseeingByQid",
-        "deploy:llmUsingFunctions": "firebase deploy --only functions:textPrompt,functions:imageAnnotation,functions:imageRecognition,functions:generateWalkingTrip",
+        "deploy:llmUsingFunctions": "firebase deploy --only functions:textPrompt,functions:imageStory,functions:generateWalkingTrip",
         "deploy:mail-functions": "firebase deploy --only functions:sendEmailVerification,functions:deleteAccount,functions:onUserReportCreated",
         "serve": "firebase emulators:start --only functions",
         "logs": "firebase functions:log",

@@ -4,8 +4,7 @@ import {
     expertPrompt,
     catPrompt,
     summaryPrompt,
-    gamerPrompt,
-    imageRecognitionPrompt
+    gamerPrompt
 } from "./prompts.mjs";
 
 export const personasToPromptMapping = {
@@ -34,10 +33,6 @@ export const getSystemPrompt = (personaKey, language) => {
     const key = (personaKey || "").toLowerCase().trim();
     const systemPrompt = personasToPromptMapping[key] || personasToPromptMapping.default;
     return setPreferedLanguage(systemPrompt, language);
-};
-
-export const getImageRecognitionPrompt = (language) => {
-    return setPreferedLanguage(imageRecognitionPrompt, language);
 };
 
 export const getSummaryPrompt = (language) => {

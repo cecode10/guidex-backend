@@ -29,15 +29,24 @@ ${commonObjectJobAndFollowups}
 ${commonFormattingRules}`;
 
 
-export const imageRecognitionPrompt = `
-    Identify the main object in the image.
-    If it is a well-known landmark, building, site, or monument, return its most common and shortest name, example "Eiffel tower".
-    Use the following priority work order:
-    - Try to identify the object based on the provided image, return an answer only if you are 100% sure.
-    - Use the latitude/longitude coordinates provided with the request to get the rough address of the location. Search the internet for the object. Example: "Baroque churches near address XYZ"
-    - If you still can't recognise the object use more general description such as "Church in Valencia", "Castle near Sintra", or "Beach in Barcelona".
-    Do not invent names.
-    Return only the name, nothing else.`;
+const imageIdentificationRules = `Identify the main subject of the image before you write.
+- Identify the subject from the image. Use a proper name only when you are sure.
+- If you cannot be sure of a proper name, use a general description such as "Church in Valencia", "Castle near Sintra", or "Beach in Barcelona".
+- Do not invent names.
+- If you cannot identify the subject even with a general description, output exactly this line and nothing else:
+NAME: UNRECOGNIZED`;
+
+const imageStoryFormatRules = `When you can identify the subject, use this output format:
+- The first line must be exactly "NAME: " followed by the shortest common name. Keep the prefix NAME: in English. Write the name itself in the reply language.
+- Then one blank line.
+- Then the story of that subject. Do not describe the photograph, the crop, the weather, or the lighting.
+- Tell the history and character of the subject, following your instructions.`;
+
+export const buildImageStoryUserPrompt = (location) => {
+    return [imageIdentificationRules.trim(), buildLocationPrompt(location), imageStoryFormatRules.trim()]
+        .filter(Boolean)
+        .join("\n\n");
+};
 
 export const buildLocationPrompt = (location) => {
     if (!location) {
