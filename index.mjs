@@ -20,6 +20,7 @@ export { resolveNearbyPlaces } from "./handlers/resolve-nearby-places.mjs";
 export { generateWalkingTrip } from "./handlers/generate-walking-trip.mjs";
 export { ensureSightseeingByQidFn as ensureSightseeingByQid } from "./handlers/ensure-sightseeing-by-qid.mjs";
 export { resolvePlaceCity } from "./handlers/resolve-place-city.mjs";
+export { computeWalkingRouteFn as computeWalkingRoute } from "./handlers/compute-walking-route.mjs";
 export { onFcmTokenWritten } from "./handlers/on-fcm-token-written.mjs";
 export { onCheckinLikeCreated } from "./handlers/on-checkin-like-created.mjs";
 export { onCheckinCreated } from "./handlers/on-checkin-created.mjs";

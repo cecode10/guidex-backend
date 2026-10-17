@@ -25,6 +25,7 @@
         "deploy:resolveNearbyPlaces": "firebase deploy --only functions:resolveNearbyPlaces",
         "deploy:generateWalkingTrip": "firebase deploy --only functions:generateWalkingTrip",
         "deploy:resolvePlaceCity": "firebase deploy --only functions:resolvePlaceCity",
+        "deploy:computeWalkingRoute": "firebase deploy --only functions:computeWalkingRoute",
         "deploy:onFcmTokenWritten": "firebase deploy --only functions:onFcmTokenWritten",
         "deploy:onCheckinLikeCreated": "firebase deploy --only functions:onCheckinLikeCreated",
         "deploy:onCheckinCreated": "firebase deploy --only functions:onCheckinCreated",
