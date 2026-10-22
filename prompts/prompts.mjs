@@ -36,16 +36,62 @@ const imageIdentificationRules = `Identify the main subject of the image before 
 - If you cannot identify the subject even with a general description, output exactly this line and nothing else:
 NAME: UNRECOGNIZED`;
 
-const imageStoryFormatRules = `When you can identify the subject, use this output format:
-- The first line must be exactly "NAME: " followed by the shortest common name. Keep the prefix NAME: in English. Write the name itself in the reply language.
+const buildImageStoryFormatRules = (withPlaceIds) => {
+    const idRule = withPlaceIds
+        ? `
+- If the subject is one of the nearby places, the second line must be exactly "ID: " followed by that place's ID from the list, for example "ID: P2". Otherwise leave this line out.`
+        : "";
+    return `When you can identify the subject, use this output format:
+- The first line must be exactly "NAME: " followed by the shortest common name. Keep the prefix NAME: in English. Write the name itself in the reply language.${idRule}
 - Then one blank line.
 - Then the story of that subject. Do not describe the photograph, the crop, the weather, or the lighting.
 - Tell the history and character of the subject, following your instructions.`;
+};
 
-export const buildImageStoryUserPrompt = (location) => {
-    return [imageIdentificationRules.trim(), buildLocationPrompt(location), imageStoryFormatRules.trim()]
+/**
+ * @param {Record<string, unknown> | null | undefined} location
+ * @param {Array<Record<string, any>>} [candidates] nearby places from findNearbyLandmarks
+ * @returns {string}
+ */
+export const buildImageStoryUserPrompt = (location, candidates = []) => {
+    const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
+    const withPlaceIds = hasCandidates && candidates.some((c) => c?.ref);
+    return [
+        imageIdentificationRules.trim(),
+        hasCandidates ? buildNearbyCandidatesPrompt(location, candidates) : buildLocationPrompt(location),
+        buildImageStoryFormatRules(withPlaceIds),
+    ]
         .filter(Boolean)
         .join("\n\n");
+};
+
+const formatCandidateLine = (candidate) => {
+    const id = candidate.ref ? `[${candidate.ref}] ` : "";
+    const extraTypes = candidate.extraTypes?.length ? ` (also: ${candidate.extraTypes.join(", ")})` : "";
+    const details = [
+        `${candidate.type || "landmark"}${extraTypes}`,
+        `${Math.round(Number(candidate.distance) || 0)} m away`,
+    ];
+    if (candidate.address) details.push(`address: ${candidate.address}`);
+    return `- ${id}${candidate.name} — ${details.join("; ")}.`;
+};
+
+/**
+ * Grounds identification with named places near the camera, closest first.
+ *
+ * @param {Record<string, unknown> | null | undefined} location
+ * @param {Array<Record<string, any>>} candidates
+ * @returns {string}
+ */
+export const buildNearbyCandidatesPrompt = (location, candidates) => {
+    const coords = location ? ` at ${JSON.stringify(location)}` : "";
+    return `Nearby places: the photo was taken with the camera${coords}. These named places are close to the camera:
+${candidates.map((candidate) => formatCandidateLine(candidate)).join("\n")}
+
+How to use the nearby places:
+- If the photo clearly shows one of these places, use its name. Its type and address are reliable; look up its history with web_search.
+- The list can be incomplete, and the camera may point at something farther away. Never choose a place only because it is close; it must match what the photo shows.
+- If no place matches, identify the subject from the image as usual.`;
 };
 
 export const buildLocationPrompt = (location) => {

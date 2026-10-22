@@ -48,6 +48,48 @@ describe("parseImageStoryStream", () => {
         expect(events).toEqual([{ type: "name", name: "Church in Valencia" }]);
     });
 
+    it("emits the place for an ID line and keeps it out of the story", async () => {
+        const events = await collect(["NAME: Monument\n", "I", "D: P", "2\n", "\nIt was built in 1907."]);
+        expect(events).toEqual([
+            { type: "name", name: "Monument" },
+            { type: "place", ref: "P2" },
+            { type: "token", token: "It was built in 1907." },
+        ]);
+    });
+
+    it("handles the name, ID and story in a single delta", async () => {
+        const events = await collect(["NAME: Monument\nid: p2.\n\nStory."]);
+        expect(events).toEqual([
+            { type: "name", name: "Monument" },
+            { type: "place", ref: "P2" },
+            { type: "token", token: "Story." },
+        ]);
+    });
+
+    it("drops an ID line without a valid place ref", async () => {
+        const events = await collect(["NAME: Fountain\n", "ID: none\n\nStory."]);
+        expect(events).toEqual([
+            { type: "name", name: "Fountain" },
+            { type: "token", token: "Story." },
+        ]);
+    });
+
+    it("does not hold back a story that only starts like an ID line", async () => {
+        const events = await collect(["NAME: Bridge\n\n", "I", "n 1882 the bridge opened."]);
+        expect(events).toEqual([
+            { type: "name", name: "Bridge" },
+            { type: "token", token: "In 1882 the bridge opened." },
+        ]);
+    });
+
+    it("emits a trailing ID line when the stream ends", async () => {
+        const events = await collect(["NAME: Monument\n", "ID: P7"]);
+        expect(events).toEqual([
+            { type: "name", name: "Monument" },
+            { type: "place", ref: "P7" },
+        ]);
+    });
+
     it("asks for a summary when the first line never arrives", async () => {
         const events = await collect(["x".repeat(241)]);
         expect(events[0]).toEqual({ type: "needs_summary" });
@@ -63,6 +105,27 @@ describe("buildImageStoryUserPrompt", () => {
         expect(prompt).toContain("NAME: ");
         expect(prompt).toContain("48.8584");
         expect(prompt).toContain("Do not guess from location alone");
+    });
+
+    it("lists nearby candidates with refs and asks for the ID line", () => {
+        const prompt = buildImageStoryUserPrompt({ lat: 42.69, lon: 23.33 }, [
+            {
+                ref: "P1",
+                name: "Saint Sofia Church",
+                type: "Church",
+                extraTypes: ["place of worship", "tourist attraction"],
+                distance: 42,
+                address: "ul. Paris 2, Sofia",
+            },
+            { ref: "P2", name: "Monument to the Unknown Soldier", type: "Monument", extraTypes: [], distance: 90, address: null },
+        ]);
+        expect(prompt).toContain(
+            "- [P1] Saint Sofia Church — Church (also: place of worship, tourist attraction); 42 m away; address: ul. Paris 2, Sofia.",
+        );
+        expect(prompt).toContain("- [P2] Monument to the Unknown Soldier — Monument; 90 m away.");
+        expect(prompt).toContain('"ID: P2"');
+        expect(prompt).toContain("Never choose a place only because it is close");
+        expect(prompt).not.toContain("Location hint");
     });
 
     it("omits the location hint when the photo has no coordinates", () => {
