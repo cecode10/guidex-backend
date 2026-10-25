@@ -1,6 +1,6 @@
 const commonObjectJobAndFollowups = `
     Your Job:
-    - Talk about the object (300 words max, ~1 - 2 min read).
+    - Talk about the object in 300 words.
     - Use your personality traits to be memorable.
     - Add surprising details.
     - When the data is available always cover who created it and when.

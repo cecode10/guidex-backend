@@ -13,8 +13,6 @@ const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 
 const FUNCTION_NAME = "imageStory";
 const SUMMARY_INPUT_CHARS = 2000;
-/** Nearby candidates sent to the app; the prompt gets all of them. */
-const CANDIDATES_EVENT_LIMIT = 5;
 
 const sendSseEvent = (res, data, event) => {
     if (event) {
@@ -92,12 +90,6 @@ export const imageStory = onRequest(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
             });
-
-            if (candidates.length > 0) {
-                sendSseEvent(res, {
-                    candidates: candidates.slice(0, CANDIDATES_EVENT_LIMIT).map(candidateToPlacePayload),
-                });
-            }
 
             let needsSummary = false;
             let story = "";
