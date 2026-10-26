@@ -50,6 +50,7 @@
         "logs": "firebase functions:log",
         "test": "vitest run",
         "test:watch": "vitest",
+        "script:account:purge": "node scripts/purge-account.mjs",
         "script:sightseeing:migrate": "node -e \"import('fs').then(async fs=>{const{sightseeingQuery,closeSightseeingPool}=await import('./services/sightseeing-db.mjs');await sightseeingQuery(fs.readFileSync('db/001_sightseeing.sql','utf8'));await closeSightseeingPool();console.log('migrated');})\"",
         "script:sightseeing:seed-qids": "node scripts/seed/seed-sightseeing-from-qids.mjs",
         "script:sightseeing:seed-qids:dry-run": "node scripts/seed/seed-sightseeing-from-qids.mjs --dry-run",
