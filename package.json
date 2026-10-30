@@ -51,6 +51,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "script:account:purge": "node scripts/purge-account.mjs",
+        "script:user:activity": "node scripts/user-activity.mjs",
         "script:sightseeing:migrate": "node -e \"import('fs').then(async fs=>{const{sightseeingQuery,closeSightseeingPool}=await import('./services/sightseeing-db.mjs');await sightseeingQuery(fs.readFileSync('db/001_sightseeing.sql','utf8'));await closeSightseeingPool();console.log('migrated');})\"",
         "script:sightseeing:seed-qids": "node scripts/seed/seed-sightseeing-from-qids.mjs",
         "script:sightseeing:seed-qids:dry-run": "node scripts/seed/seed-sightseeing-from-qids.mjs --dry-run",
@@ -73,6 +74,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@google-cloud/bigquery": "^9.5.0",
         "@types/pg": "^8.20.0",
         "eslint": "^10.6.0",
         "firebase-tools": "^15.22.3",
